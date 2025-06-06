@@ -1,0 +1,47 @@
+1.
+!unzip "path of the trained zip file" -d "/content"
+
+2. for saving the trained model
+from google.colab import drive
+drive.mount('/content/drive')
+
+3.
+pip install ultralytics
+
+4.roboflow dataset download copy code 
+!pip install roboflow
+
+from roboflow import Roboflow
+rf = Roboflow(api_key="pARvL3PS4qUJP1VVSgGT")
+project = rf.workspace("fisrt-one").project("facial-expression-gtvqk")
+version = project.version(1)
+dataset = version.download("yolov11")
+
+5.
+from ultralytics import YOLO
+
+# Load a COCO-pretrained YOLO11n model
+model = YOLO("path of the latest best pt")
+
+# Train the model on the COCO8 example dataset for 100 epochs
+results = model.train(data="path of the data.yml of the roboflow dataset", epochs=200, imgsz=640)
+
+
+
+
+6. save the model to the gdrive
+
+import shutil
+
+# Define the source and destination paths
+source_directory = "/content/runs"  # Replace with the actual directory
+destination_directory = "/content/drive/MyDrive/Thesis-AI/runs"  # Replace with your desired location in Google Drive
+
+# Create the destination directory if it doesn't exist
+import os
+os.makedirs(destination_directory, exist_ok=True)
+
+# Copy the directory recursively
+shutil.copytree(source_directory, destination_directory, dirs_exist_ok=True)
+
+print(f"Files copied to {destination_directory}")

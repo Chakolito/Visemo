@@ -23,4 +23,9 @@
     <ProjectReference Include="..\VisemoAlgorithm\VisemoAlgorithm.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="AI Files\FastAPI Endpoint\" />
+  </ItemGroup>
+
+
 </Project>

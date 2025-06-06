@@ -1,9 +1,10 @@
-﻿namespace VisemoServices.Services
-{
-    public interface IEmotionServices : IDisposable
-    {
-        //Task<float[]> Predict(float[] inputData); for frontend
+﻿using VisemoServices.Model;
 
-        Task<float[]> PredictImageAsync(IFormFile imageFile);
+namespace VisemoServices.Services
+{
+    public interface IEmotionServices
+    {
+
+        Task<string> PredictEmotionAsync(IFormFile imageFile);
     }
 }

@@ -1,11 +1,9 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using VisemoServices.Services;
-using System.Threading.Tasks;
-
 
 namespace VisemoServices.Controllers
 {
-    [Route("api/[controller]")]
+    [Route("api/emotion")]
     [ApiController]
     public class EmotionController : ControllerBase
     {
@@ -14,23 +12,16 @@ namespace VisemoServices.Controllers
         {
             _emotionServices = emotionServices;
         }
-      
 
-        [HttpPost("predict-image")]
-        public async Task<IActionResult> PredictImage([FromForm] IFormFile imageFile)
+        [HttpPost("detect")]
+        [Consumes("multipart/form-data")]
+        public async Task<IActionResult> Predict(IFormFile image)
         {
-            if (imageFile == null || imageFile.Length == 0)
-                return BadRequest("Invalid image file.");
+            if (image == null || image.Length == 0)
+                return BadRequest("Image is required");
 
-            try
-            {
-                var output = await _emotionServices.PredictImageAsync(imageFile);
-                return Ok(output);
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, $"Error: {ex.Message}");
-            }
+            var result = await _emotionServices.PredictEmotionAsync(image);
+            return Ok(new { emotion = result });
         }
     }
 }
