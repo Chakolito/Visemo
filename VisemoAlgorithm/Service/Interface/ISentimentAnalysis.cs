@@ -1,6 +1,9 @@
 ﻿namespace VisemoAlgorithm.Service.Interface
 {
-    public class ISentimentAnalysis
+    public interface ISentimentAnalysis
     {
+        //Task<SentimentAnalysis> GenerateDetailedReport();
+        //Task<SentimentAnalysis> GenerateSummary();
+
     }
 }

@@ -1,6 +1,7 @@
 ﻿namespace VisemoAlgorithm.Service.Interface
 {
-    public class ICodeEditor
+    public interface ICodeEditor
     {
+        //Task<CodeEditor> BuildCompiler(bool buildResult);
     }
 }

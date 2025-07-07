@@ -1,6 +1,9 @@
-﻿namespace VisemoAlgorithm.Service.Interface
+﻿using System.Diagnostics;
+
+namespace VisemoAlgorithm.Service.Interface
 {
-    public class ICamera
+    public interface ICamera
     {
+        //Task<Camera> CaptureImage(string ImageCaptured, DateTime CapturedAt);
     }
 }

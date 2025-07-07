@@ -1,6 +1,9 @@
-﻿namespace VisemoAlgorithm.Service
+﻿using VisemoAlgorithm.Service.Interface;
+
+namespace VisemoAlgorithm.Service
 {
-    public class BuildResult
+    public class BuildResult : IBuildResult
+
     {
     }
 }

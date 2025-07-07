@@ -1,6 +1,8 @@
-﻿namespace VisemoAlgorithm.Service
+﻿using VisemoAlgorithm.Service.Interface;
+
+namespace VisemoAlgorithm.Service
 {
-    public class Emotion
+    public class Emotion : IEmotion
     {
     }
 }

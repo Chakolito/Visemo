@@ -1,7 +1,8 @@
-﻿namespace VisemoAlgorithm.Service
+﻿using VisemoAlgorithm.Service.Interface;
+
+namespace VisemoAlgorithm.Service
 {
-    public class AlgoActivity
+    public class AlgoActivity : IAlgoActivity
     {
     }
 }
-//test

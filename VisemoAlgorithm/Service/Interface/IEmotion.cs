@@ -1,6 +1,7 @@
 ﻿namespace VisemoAlgorithm.Service.Interface
 {
-    public class Iemotion
+    public interface IEmotion
     {
+        //Task<Emotion> GetEmotion(string EmotionDetected);
     }
 }
