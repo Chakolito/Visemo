@@ -13,18 +13,52 @@ interface User {
   avatarUrl?: string;
 }
 
-const user: User = {
-  name: "Carl Andre Interino",
-  role: "Student",
-  avatarUrl: "/path/to/avatar.jpg",
-};
-
 const StudentLandingPage: React.FC = () => {
+  const [user, setUser] = useState<User | null>(null);
   const [isVisible, setIsVisible] = useState(true);
   const [lastScrollY, setLastScrollY] = useState(0);
   const [classrooms, setClassrooms] = useState<Classroom[]>([]);
   const [selectedClass, setSelectedClass] = useState<Classroom | null>(null);
   const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null);
+
+  useEffect(() => {
+    const fetchUser = async () => {
+      const email = localStorage.getItem("email");
+      if (!email) {
+        console.error("No email found in localStorage.");
+        return;
+      }
+
+      try {
+        const response = await fetch(
+          `https://localhost:7131/api/user/CheckUser?email=${encodeURIComponent(email)}`
+        );
+        if (!response.ok) {
+          throw new Error("Failed to fetch user");
+        }
+
+        const data = await response.json();
+        const backendUser = data.user;
+
+        // Build full, safe avatar URL
+        let avatarPath = backendUser.idImage
+          ? `https://localhost:7131/${backendUser.idImage.replace(/\\/g, "/")}`
+          : `https://localhost:7131/uploads/default-avatar.png`;
+
+        avatarPath = encodeURI(avatarPath);
+
+        setUser({
+          name: `${backendUser.firstName} ${backendUser.middleInitial}. ${backendUser.lastName}`,
+          role: backendUser.role,
+          avatarUrl: avatarPath,
+        });
+      } catch (err) {
+        console.error("Error fetching user:", err);
+      }
+    };
+
+    fetchUser();
+  }, []);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -73,6 +107,10 @@ const StudentLandingPage: React.FC = () => {
     setSelectedClass(null);
   };
 
+  if (!user) {
+    return <div>Loading user...</div>;
+  }
+
   return (
     <div className="h-screen flex flex-col overflow-hidden">
       <div
@@ -99,25 +137,23 @@ const StudentLandingPage: React.FC = () => {
           />
         )}
 
-
-           {selectedClass && !selectedActivity && (
+        {selectedClass && !selectedActivity && (
           <ClassroomDetails
             classroomId={selectedClass.id as number}
             onBack={handleBackToClasses}
             role="Student"
           />
         )}
-          </div>
-        
-
-        {selectedActivity && (
-          <div className="p-4">
-            <ActivityDetails activity={selectedActivity} onBack={handleBackToActivities} />
-          </div>
-        )}
-
-        <Outlet />
       </div>
+
+      {selectedActivity && (
+        <div className="p-4">
+          <ActivityDetails activity={selectedActivity} onBack={handleBackToActivities} />
+        </div>
+      )}
+
+      <Outlet />
+    </div>
   );
 };
 

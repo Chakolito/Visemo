@@ -36,6 +36,7 @@ export const loginStudent = async (email: string, password: string) => {
 
         if (response.status === 200) {
             localStorage.setItem("token", response.data.token);
+            localStorage.setItem("email", email);
             return response.data;
         } else {
             throw new Error("Login Failed");
@@ -55,6 +56,7 @@ export const loginTeacher = async (email: string, password: string) => {
 
         if (response.status === 200) {
             localStorage.setItem("token", response.data.token);
+            localStorage.setItem("email", email);
             return response.data;
         } else {
             throw new Error("Login Failed");

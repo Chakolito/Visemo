@@ -126,6 +126,7 @@ if (app.Environment.IsDevelopment())
 
 app.UseCors("AllowAll");
 app.UseHttpsRedirection();
+// Serve wwwroot
 app.UseStaticFiles();
 app.UseAuthentication();
 app.UseAuthorization();
