@@ -6,8 +6,8 @@ namespace VisemoServices.Services
     public interface IClassroomService
     {
         Task<ClassroomResponseDto> CreateClassroomAsync(string name, int teacherUserId);
-        Task<IEnumerable<Classroom>> GetAllClassroomsAsync();
-        Task<Classroom> GetClassroomByIdAsync(int id);
+        Task<IEnumerable<Classroom>> GetAllClassroomsByUserIdAsync(int userId);
+        Task<Classroom> GetClassroomByIdAsync(int classroomId, int userId);
         Task<Classroom> UpdateClassroomAsync(int id, string newName);
         Task DeleteClassroomAsync(int id);
         Task<(bool Success, string Message)> AddUserToClassroomAsync(int classroomId, string idNumber);

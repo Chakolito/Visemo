@@ -19,20 +19,10 @@ namespace VisemoServices.Controllers
         // Create Classroom
         [Authorize(Roles = "Teacher")]
         [HttpPost("CreateClassroom")]
-        public async Task<IActionResult> CreateClassroom([FromBody] CreateClassroomRequestDto request)
+        public async Task<IActionResult> CreateClassroom([FromBody] CreateClassroomRequestDto dto)
         {
-            try
-            {
-                // Extract user ID from token
-                var teacherUserId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value!);
-
-                var classroom = await _classroomService.CreateClassroomAsync(request.Name, teacherUserId);
-                return Ok(classroom);
-            }
-            catch (Exception ex)
-            {
-                return BadRequest(ex.Message);
-            }
+            var result = await _classroomService.CreateClassroomAsync(dto.className, dto.TeacherUserId);
+            return Ok(result);
         }
 
         //Add User to Classroom
@@ -46,20 +36,39 @@ namespace VisemoServices.Controllers
 
         // Get all Classrooms
         [HttpGet("GetAllClassrooms")]
-        public async Task<IActionResult> GetAll()
+        public async Task<IActionResult> GetAll([FromQuery] int userId)
         {
-            var classrooms = await _classroomService.GetAllClassroomsAsync();
-            return Ok(classrooms);
+            var classrooms = await _classroomService.GetAllClassroomsByUserIdAsync(userId);
+
+            var dtoList = classrooms.Select(c => new ClassroomResponseDto
+            {
+                Id = c.Id,
+                className = c.className,
+                TeacherUserId = c.TeacherUserId,
+                TeacherFullName = $"{c.Teacher.firstName} {c.Teacher.middleInitial} {c.Teacher.lastName}",
+            });
+
+            return Ok(dtoList);
         }
 
-        // Get Classroom by ID
+        //// Get Classroom by ID
         [HttpGet("GetClassroom")]
-        public async Task<IActionResult> GetById(int id)
+        public async Task<IActionResult> GetById([FromQuery] int id, [FromQuery] int userId)
         {
-            var classroom = await _classroomService.GetClassroomByIdAsync(id);
+            var classroom = await _classroomService.GetClassroomByIdAsync(id, userId);
             if (classroom == null) return NotFound();
-            return Ok(classroom);
+
+            var dto = new ClassroomResponseDto
+            {
+                Id = classroom.Id,
+                className = classroom.className,
+                TeacherUserId = classroom.TeacherUserId,
+                TeacherFullName = $"{classroom.Teacher.firstName} {classroom.Teacher.middleInitial} {classroom.Teacher.lastName}",
+            };
+
+            return Ok(dto);
         }
+
         //Get Users in Classroom
         [HttpGet("GetUser")]
         public async Task<IActionResult> GetUsersInClassroom(int id)

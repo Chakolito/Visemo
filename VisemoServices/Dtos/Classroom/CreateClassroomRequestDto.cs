@@ -2,7 +2,8 @@
 {
     public class CreateClassroomRequestDto
     {
-        public string Name { get; set; } = string.Empty;
+        public string className { get; set; }
+        public int TeacherUserId { get; set; }
     }
 
 }
