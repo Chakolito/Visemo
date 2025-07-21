@@ -1,8 +1,8 @@
 import React, { useState } from "react";
 import { IconButton } from "@mui/material";
-import Visibility from '@mui/icons-material/Visibility';
-import VisibilityOff from '@mui/icons-material/VisibilityOff';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import Visibility from "@mui/icons-material/Visibility";
+import VisibilityOff from "@mui/icons-material/VisibilityOff";
+import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import { useNavigate } from "react-router-dom";
 import { loginStudent, loginTeacher, submitAuthForm } from "../../services/authService";
 
@@ -20,21 +20,13 @@ const AuthForm: React.FC<AuthFormProps> = ({ type, role }) => {
     idNumber: "",
     password: "",
     confirmPassword: "",
-    role: role,
+    role,
   });
 
-  const [errors, setErrors] = useState({
-    firstName: "",
-    lastName: "",
-    email: "",
-    idNumber: "",
-    password: "",
-    confirmPassword: "",
-    role: "",
-  });
-
+  const [errors, setErrors] = useState<{ confirmPassword: string }>({ confirmPassword: "" });
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [signupSuccess, setSignupSuccess] = useState(false);
 
   const navigate = useNavigate();
 
@@ -54,19 +46,14 @@ const AuthForm: React.FC<AuthFormProps> = ({ type, role }) => {
   const togglePasswordVisibility = () => setShowPassword((prev) => !prev);
   const toggleConfirmPasswordVisibility = () => setShowConfirmPassword((prev) => !prev);
 
-  const validateConfirmPassword = (password: string, confirmPassword: string) => {
-    return password === confirmPassword ? "" : "Passwords do not match";
-  };
-
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-
     setFormData((prev) => ({ ...prev, [name]: value }));
 
     if (name === "confirmPassword") {
       setErrors((prev) => ({
         ...prev,
-        confirmPassword: validateConfirmPassword(formData.password, value),
+        confirmPassword: value !== formData.password ? "Passwords do not match" : "",
       }));
     }
   };
@@ -75,51 +62,61 @@ const AuthForm: React.FC<AuthFormProps> = ({ type, role }) => {
     e.preventDefault();
 
     if (type === "signup") {
-      if (!errors.password && !errors.confirmPassword) {
-        console.log(`${type} form submitted for ${role}:`, formData);
+      if (formData.password !== formData.confirmPassword) {
+        setErrors({ confirmPassword: "Passwords do not match" });
+        return;
+      }
 
-        const formDataToSend = new FormData();
-        formDataToSend.append("firstName", formData.firstName);
-        formDataToSend.append("lastName", formData.lastName);
-        formDataToSend.append("middleInitial", formData.middleInitial);
-        formDataToSend.append("email", formData.email);
-        formDataToSend.append("idNumber", formData.idNumber);
-        formDataToSend.append("password", formData.password);
-        formDataToSend.append("confirmPassword", formData.confirmPassword);
-        formDataToSend.append("role", role);
+      const payload = {
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        middleInitial: formData.middleInitial,
+        email: formData.email,
+        idNumber: formData.idNumber,
+        password: formData.password,
+        role,
+      };
 
-        await submitAuthForm(formDataToSend);
-      } else {
-        console.log("Please fix the errors before submitting.");
+      try {
+        await submitAuthForm(payload);
+        setSignupSuccess(true);
+      } catch (err: any) {
+        alert(err.message || "Signup failed");
       }
     } else if (type === "login") {
-      if (!errors.password) {
-        console.log(`${type} form submitted for ${role}:`, formData);
-        try {
-          const res = await (role === "Student" ? loginStudent : loginTeacher)(formData.email, formData.password);
-          console.log("Login successful:", res);
+      try {
+        const res = await (role === "Student" ? loginStudent : loginTeacher)(
+          formData.email,
+          formData.password
+        );
 
-          if (role === "Student") {
-            navigate("/student-dashboard");
-          } else if (role === "Teacher") {
-            navigate("/teacher-dashboard");
-          }
-        } catch (error) {
-          console.log("Login failed:", error);
-          alert("Login failed. Please check your credentials.");
-        }
+        if (role === "Student") navigate("/student-dashboard");
+        else if (role === "Teacher") navigate("/teacher-dashboard");
+      } catch {
+        alert("Login failed. Please check your credentials.");
       }
     }
   };
 
+  const toggleAuthType = () => {
+    navigate(`/loginauth/${role.toLowerCase()}/${type === "login" ? "signup" : "login"}`);
+  };
+
+  const handleModalClose = () => {
+    setSignupSuccess(false);
+    navigate(`/loginauth/${role.toLowerCase()}/login`);
+  };
+
   return (
     <div className="flex h-screen">
+      {/* Left */}
       <div className="w-1/2 flex flex-col items-center justify-center px-16 bg-white">
         <div className="absolute top-4 left-4">
           <IconButton onClick={() => navigate("/")}>
             <ArrowBackIcon />
           </IconButton>
         </div>
+
         <h1 className="text-3xl font-bold text-center mb-3">VISEMO</h1>
         <h2 className="text-2xl font-semibold mt-2 text-center">
           {type === "login" ? `Welcome back, ${role}!` : `Sign Up as ${role}!`}
@@ -153,9 +150,11 @@ const AuthForm: React.FC<AuthFormProps> = ({ type, role }) => {
                   placeholder="M.I"
                   value={formData.middleInitial}
                   onChange={handleChange}
-                  className="input-style text-start"
+                  required
+                  className="input-style"
                 />
               </div>
+
               <input
                 type="text"
                 name="idNumber"
@@ -189,11 +188,13 @@ const AuthForm: React.FC<AuthFormProps> = ({ type, role }) => {
               className="input-style w-full pr-10"
             />
             <div className="absolute inset-y-0 right-0 pr-1 flex items-center">
-              <IconButton onClick={togglePasswordVisibility} className="absolute right-2 top-1/2 transform -translate-y-1/2">
+              <IconButton
+                onClick={togglePasswordVisibility}
+                className="absolute right-2 top-1/2 transform -translate-y-1/2"
+              >
                 {showPassword ? <VisibilityOff /> : <Visibility />}
               </IconButton>
             </div>
-            {errors.password && <p className="absolute text-red-500 text-sm">{errors.password}</p>}
           </div>
 
           {type === "signup" && (
@@ -208,42 +209,58 @@ const AuthForm: React.FC<AuthFormProps> = ({ type, role }) => {
                 className="input-style w-full pr-10"
               />
               <div className="absolute inset-y-0 right-0 flex items-center pr-3">
-                <IconButton onClick={toggleConfirmPasswordVisibility} className="absolute right-0 top-1/2 transform -translate-y-1/2">
+                <IconButton
+                  onClick={toggleConfirmPasswordVisibility}
+                  className="absolute right-0 top-1/2 transform -translate-y-1/2"
+                >
                   {showConfirmPassword ? <VisibilityOff /> : <Visibility />}
                 </IconButton>
               </div>
-              {errors.confirmPassword && <p className="absolute text-red-500 text-sm">{errors.confirmPassword}</p>}
-            </div>
-          )}
-
-          {type === "login" && (
-            <div className="flex justify-end">
-              <button
-                onClick={() => navigate("/forgot-password")}
-                className="mt-4 text-blue-500 hover:underline"
-              >
-                Forgot Password?
-              </button>
+              {errors.confirmPassword && (
+                <p className="text-red-500 text-sm">{errors.confirmPassword}</p>
+              )}
             </div>
           )}
 
           <button
             type="submit"
-            className="bg-green-600 text-white py-2 px-4 w-full rounded-md mt-4"
+            className="bg-green-600 text-white py-2 px-4 w-full rounded-md mt-6"
           >
             {type === "login" ? "Log In" : "Create Account"}
           </button>
         </form>
-      </div>
 
-      <div className={`w-1/2 flex items-center justify-center ${type === "login" ? "bg-green-500" : "bg-yellow-400"}`}>
         <button
-          onClick={() => navigate(type === "signup" ? `/loginauth/${role.toLowerCase()}/login` : `/loginauth/${role.toLowerCase()}/signup`)}
-          className="cursor-pointer"
+          onClick={toggleAuthType}
+          className="mt-4 text-blue-600 hover:underline"
         >
-          <img src={selectedImage} alt={`${role} ${type}`} />
+          {type === "login" ? "Don’t have an account? Sign up" : "Already have an account? Log in"}
         </button>
       </div>
+
+      {/* Right */}
+      <div
+        className={`w-1/2 flex items-center justify-center ${
+          type === "login" ? "bg-green-500" : "bg-yellow-400"
+        }`}
+      >
+        <img src={selectedImage} alt={`${role} ${type}`} className="max-w-full max-h-full" />
+      </div>
+
+      {signupSuccess && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
+          <div className="bg-white p-6 rounded shadow-lg text-center">
+            <h2 className="text-xl font-bold mb-4">🎉 Account Created!</h2>
+            <p className="mb-4">You can now log in with your credentials.</p>
+            <button
+              onClick={handleModalClose}
+              className="bg-green-600 text-white px-4 py-2 rounded"
+            >
+              Go to Login
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -21,8 +21,8 @@ namespace VisemoServices.Controllers
         }
 
         [HttpPost("signup")]
-        [Consumes("multipart/form-data")]
-        public async Task<IActionResult> SignUp([FromForm] UserSignupDto userDto)
+        [Consumes("application/json")]
+        public async Task<IActionResult> SignUp([FromBody] UserSignupDto userDto)
         {
             try
             {

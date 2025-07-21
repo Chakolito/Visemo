@@ -17,10 +17,10 @@ const saveUserInfo = (user: any, token: string) => {
   localStorage.setItem("userId", String(user.id));
 };
 
-export const submitAuthForm = async (formData: FormData) => {
+export const submitAuthForm = async (data: any) => {
   try {
-    const res = await axios.post(`${BASE_URL}/signup`, formData, {
-      headers: { "Content-Type": "multipart/form-data" },
+    const res = await axios.post(`${BASE_URL}/signup`, data, {
+      headers: { "Content-Type": "application/json" },
     });
     return res.data;
   } catch (err: any) {
