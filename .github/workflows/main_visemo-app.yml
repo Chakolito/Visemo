@@ -20,13 +20,13 @@ jobs:
           dotnet-version: '8.x'
 
       - name: Restore dependencies
-        run: dotnet restore
+        run: dotnet restore VisemoServices/VisemoServices.csproj
 
       - name: Build
-        run: dotnet build --configuration Release --no-restore
+        run: dotnet build VisemoServices/VisemoServices.csproj --configuration Release --no-restore
 
       - name: Publish
-        run: dotnet publish -c Release -o publish
+        run: dotnet publish VisemoServices/VisemoServices.csproj -c Release -o publish
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
