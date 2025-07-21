@@ -26,7 +26,7 @@ jobs:
         run: dotnet build VisemoServices/VisemoServices.csproj --configuration Release --no-restore
 
       - name: Publish
-        run: dotnet publish VisemoServices/VisemoServices.csproj -c Release -o publish
+        run: dotnet publish VisemoServices/VisemoServices.csproj -c Release -o publish /p:PublishDir=publish/
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4

@@ -21,7 +21,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\VisemoAlgorithm\VisemoAlgorithm.csproj" />
+ <ProjectReference Include="..\VisemoAlgorithm\VisemoAlgorithm.csproj">
+  <PrivateAssets>all</PrivateAssets>
+</ProjectReference>
   </ItemGroup>
 
   <ItemGroup>
