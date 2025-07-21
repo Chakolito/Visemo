@@ -101,7 +101,7 @@ const ActivitiesTab: React.FC<ActivitiesTabProps> = ({
                 <h3 className="text-lg font-semibold">{act.name}</h3>
                 <p className="text-sm">Timer: {act.timer}</p>
                 <p className="text-xs text-gray-600 mt-2">
-                  Created: {new Date(act.createdAt).toLocaleString()}
+                  Created: {new Date(act.createdAt).toLocaleDateString()}
                 </p>
               </div>
                {role === "Teacher" && (

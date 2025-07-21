@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace VisemoServices.Model
 {
@@ -6,7 +7,7 @@ namespace VisemoServices.Model
     {
         public int Id { get; set; }
 
-        [Required, MaxLength(255)]  
+        [Required, MaxLength(255)]
         public string? Email { get; set; }
 
         [Required]
@@ -24,15 +25,13 @@ namespace VisemoServices.Model
         [Required, MaxLength(50)]
         public string? idNumber { get; set; }
 
-        //[Required, MaxLength(255)]
-        //public string? idImage { get; set; }
-
         [Required, MaxLength(10)]
         public string? role { get; set; }
 
+        // For classrooms a student is enrolled in
+        public List<Classroom> EnrolledClassrooms { get; set; } = new();
 
-        //Foreign key to Classroom
-        public List<Classroom> Classrooms { get; set; } = new List<Classroom>();
+        // For classrooms a teacher created
+        public List<Classroom> ClassroomsAsTeacher { get; set; } = new();
     }
-
 }

@@ -9,11 +9,14 @@ const API = axios.create({
 // // Create Classroom
 export const createClassroom = async (className: string) => {
   const token = localStorage.getItem("token");
+  const teacherUserId = localStorage.getItem("userId");
+
   if (!token) throw new Error("No token found. Please log in first.");
+  if (!teacherUserId) throw new Error("No userId found. Please log in first.");
 
   return API.post(
     `/classroom/CreateClassroom`,
-    { name: className },
+    { className: className, teacherUserId: Number(teacherUserId) },
     {
       headers: {
         Authorization: `Bearer ${token}`,
@@ -22,12 +25,21 @@ export const createClassroom = async (className: string) => {
   );
 };
 
-
 // Get All Classrooms
 export const getClassrooms = async () => {
-  const response = await API.get("/classroom/GetAllClassrooms");
+  const token = localStorage.getItem("token");
+  const userId = localStorage.getItem("userId");
+
+  if (!token) throw new Error("No token");
+  if (!userId) throw new Error("No userId");
+
+  const response = await API.get("/classroom/GetAllClassrooms", {
+    params: { userId:  Number(userId) },
+    headers: { Authorization: `Bearer ${token}` },
+  });
   return response.data;
 };
+
 
 // Delete Classroom
 export const deleteClassroom = async (id: number) => {

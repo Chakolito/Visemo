@@ -28,3 +28,9 @@ html, body {
   overflow-x: hidden;
 }
 
+.custom-select option {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+

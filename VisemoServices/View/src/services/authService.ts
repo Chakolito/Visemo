@@ -3,7 +3,6 @@ import axios from "axios";
 const BASE_URL = process.env.REACT_APP_API_URL || "https://localhost:7131/api/User";
 axios.defaults.timeout = 10000;
 
-// 🔷 Save user info properly
 const saveUserInfo = (user: any, token: string) => {
   const userPayload = {
     firstName: user.firstName,
@@ -17,10 +16,10 @@ const saveUserInfo = (user: any, token: string) => {
   localStorage.setItem("userId", String(user.id));
 };
 
-export const submitAuthForm = async (formData: FormData) => {
+export const submitAuthForm = async (data: any) => {
   try {
-    const res = await axios.post(`${BASE_URL}/signup`, formData, {
-      headers: { "Content-Type": "multipart/form-data" },
+    const res = await axios.post(`${BASE_URL}/signup`, data, {
+      headers: { "Content-Type": "application/json" },
     });
     return res.data;
   } catch (err: any) {
