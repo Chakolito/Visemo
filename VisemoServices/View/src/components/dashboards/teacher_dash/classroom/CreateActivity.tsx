@@ -1,11 +1,33 @@
 import React, { useState } from "react";
 import { createActivity } from "../../../../api/classroomApi";
+import { MenuItem, FormControl, InputLabel, Select, TextField, Button } from "@mui/material";
 
 interface CreateActivityProps {
   classroomId: number;
   onClose: () => void;
   onCreated: () => void;
 }
+
+const topics = [
+  "Syntax",
+  "Output",
+  "Comments",
+  "Variables",
+  "Data Types",
+  "Type Casting",
+  "User Input",
+  "Operators",
+  "Math",
+  "Strings",
+  "Booleans",
+  "If..Else",
+  "Switch",
+  "While Loop",
+  "For Loop",
+  "Break/Continue",
+  "Arrays",
+  "Methods"
+];
 
 const CreateActivity: React.FC<CreateActivityProps> = ({
   classroomId,
@@ -25,11 +47,10 @@ const CreateActivity: React.FC<CreateActivityProps> = ({
     try {
       const timer = `00:${duration}:00`;
 
-      // Send only what the backend expects
       await createActivity(classroomId, name, timer, instruction);
 
-      onCreated();  // refresh activities
-      onClose();    // close modal
+      onCreated();
+      onClose();
     } catch (err) {
       console.error("Failed to create activity", err);
       alert("Failed to create activity. Please check your inputs.");
@@ -43,71 +64,71 @@ const CreateActivity: React.FC<CreateActivityProps> = ({
       <div className="bg-white w-full md:w-1/2 lg:w-1/3 h-full p-6 shadow-lg animate-slide-in-right overflow-y-auto">
         <h2 className="text-2xl font-bold mb-4">Create Activity</h2>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block font-semibold mb-1">Title of Activity</label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
-              className="w-full border p-2 rounded"
-              placeholder="Enter title"
-            />
-          </div>
 
-          <div>
-            <label className="block font-semibold mb-1">Select Topic</label>
-            <select
-              value={topic}
-              onChange={(e) => setTopic(e.target.value)}
-              required
-              className="w-full border p-2 rounded"
-            >
-              <option value="">Select topic</option>
-              <option value="Topic 1">Topic 1</option>
-              <option value="Topic 2">Topic 2</option>
-            </select>
-          </div>
+          <TextField
+            fullWidth
+            label="Title of Activity"
+            variant="outlined"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            required
+          />
 
-          <div>
-            <label className="block font-semibold mb-1">Instructions</label>
-            <textarea
-              value={instruction}
-              onChange={(e) => setInstruction(e.target.value)}
-              required
-              className="w-full border p-2 rounded"
-              rows={4}
-              placeholder="Enter instructions"
-            />
-          </div>
+          <FormControl fullWidth margin="normal" variant="outlined">
+              <InputLabel id="topic-label">Select Topic</InputLabel>
+              <Select
+                labelId="topic-label"
+                id="topic"
+                value={topic}
+                onChange={(e) => setTopic(e.target.value)}
+                label="Select Topic"
+              >
+                {topics.map((t) => (
+                  <MenuItem key={t} value={t}>{t}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
 
-          <div>
-            <label className="block font-semibold mb-1">Set Timer (minutes)</label>
-            <input
-              type="number"
-              min={1}
+          <TextField
+            fullWidth
+            multiline
+            minRows={4}
+            label="Instructions"
+            value={instruction}
+            onChange={(e) => setInstruction(e.target.value)}
+            required
+          />
+
+          <FormControl fullWidth margin="normal" variant="outlined">
+            <InputLabel id="timer-label">Set Timer</InputLabel>
+            <Select
+              labelId="timer-label"
+              id="timer"
               value={duration}
               onChange={(e) => setDuration(Number(e.target.value))}
-              className="border p-2 rounded w-24"
-            />
-          </div>
+              label="Set Timer"
+            >
+              <MenuItem value={30}>30 mins</MenuItem>
+              <MenuItem value={60}>60 mins</MenuItem>
+            </Select>
+          </FormControl>
 
           <div className="flex justify-end gap-4 mt-4">
-            <button
-              type="button"
+            <Button
               onClick={onClose}
-              className="px-4 py-2 bg-gray-300 rounded"
+              variant="outlined"
               disabled={loading}
             >
               Cancel
-            </button>
-            <button
+            </Button>
+            <Button
               type="submit"
-              className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+              variant="contained"
+              color="success"
               disabled={loading}
             >
               {loading ? "Creating…" : "Create"}
-            </button>
+            </Button>
           </div>
         </form>
       </div>

@@ -89,6 +89,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ type, role }) => {
           formData.email,
           formData.password
         );
+        console.log("Login successful:", res);
 
         if (role === "Student") navigate("/student-dashboard");
         else if (role === "Teacher") navigate("/teacher-dashboard");
