@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 
 const BASE_URL =
-  process.env.REACT_APP_API_URL || "https://localhost:7131/api/Classroom";
+  process.env.REACT_APP_API_URL || "http://localhost:5000/api/Classroom";
 
 interface AddStudentProps {
   onClose: () => void;
@@ -71,12 +71,10 @@ useEffect(() => {
       });
 
       if (res.data && res.data.length > 0) {
-        const filtered = res.data
-          .filter((student) => student.role === "Student")
-          .map((student) => ({
-            idNumber: student.idNumber,
-            name: `${student.firstName} ${student.lastName}`,
-          }));
+        const filtered = res.data.map((student) => ({
+          idNumber: student.idNumber,
+          name: `${student.firstName} ${student.lastName}`,
+        }));
 
         if (filtered.length > 0) {
           setStudents(filtered);

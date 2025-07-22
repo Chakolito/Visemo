@@ -52,7 +52,7 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
     {
-        policy.AllowAnyOrigin()
+        policy.WithOrigins("http://localhost:3000")
               .AllowAnyMethod()
               .AllowAnyHeader();
     });
@@ -155,10 +155,10 @@ using (var scope = app.Services.CreateScope())
 }
 
 app.UseCors("AllowAll");
-app.UseHttpsRedirection();
-app.UseStaticFiles();
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseHttpsRedirection();
+app.UseStaticFiles();
 
 app.MapControllers();
 app.Run();

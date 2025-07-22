@@ -156,7 +156,8 @@ namespace VisemoServices.Services
 
             var users = await _context.Users
                 .Where(u => !userIdsInClassroom.Contains(u.Id) &&
-                            u.idNumber.Contains(partialIdNumber))
+                            u.idNumber.Contains(partialIdNumber) &&
+                            u.role == "Student")
                 .Select(u => new
                 {
                     u.Id,

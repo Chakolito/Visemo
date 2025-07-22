@@ -6,7 +6,7 @@ services:
       context: .
       dockerfile: VisemoServices/Dockerfile
     ports:
-      - "5000:80"
+      - "5000:8080"
     depends_on:
       - db
 

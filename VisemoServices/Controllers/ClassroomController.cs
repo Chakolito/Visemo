@@ -46,6 +46,12 @@ namespace VisemoServices.Controllers
                 className = c.className,
                 TeacherUserId = c.TeacherUserId,
                 TeacherFullName = $"{c.Teacher.firstName} {c.Teacher.middleInitial} {c.Teacher.lastName}",
+                Activities = c.Activities.Select(a => new ActivityDto
+                {
+                    Id = a.Id,
+                    Name = a.Name,
+                    Timer = a.Timer.ToString(@"hh\:mm\:ss")
+                }).ToList()
             });
 
             return Ok(dtoList);
