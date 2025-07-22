@@ -11,7 +11,7 @@ using VisemoServices.Data;
 namespace VisemoServices.Migrations
 {
     [DbContext(typeof(DatabaseContext))]
-    [Migration("20250721031845_UpdatedClassroomRelationship")]
+    [Migration("20250722124555_UpdatedClassroomRelationship")]
     partial class UpdatedClassroomRelationship
     {
         /// <inheritdoc />
