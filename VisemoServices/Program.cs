@@ -143,6 +143,17 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
+//  Apply migrations for both databases
+using (var scope = app.Services.CreateScope())
+{
+    var services = scope.ServiceProvider;
+    var mainDbContext = services.GetRequiredService<DatabaseContext>();
+    var algoDbContext = services.GetRequiredService<VisemoAlgoDbContext>();
+
+    mainDbContext.Database.Migrate();
+    algoDbContext.Database.Migrate();
+}
+
 app.UseCors("AllowAll");
 app.UseHttpsRedirection();
 app.UseStaticFiles();
