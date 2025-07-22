@@ -182,6 +182,39 @@ namespace VisemoServices.Services
         {
             return await _pingService.CheckForPing(userId, activityId);
         }
+
+        public async Task<(bool IsOngoing, int TimeRemainingSeconds)> GetActivityStatusAsync(int userId, int activityId)
+        {
+            var activity = await _context.Activities.FindAsync(activityId);
+            if (activity == null || !activity.IsStarted) return (false, 0);
+
+            var session = await _dbContext.ActivitySessions
+                .FirstOrDefaultAsync(s => s.ActivityId == activityId && s.UserId == userId);
+
+            if (session == null) return (false, 0);
+
+            var timePassed = DateTime.UtcNow - session.StartTime;
+            var remaining = activity.Timer - timePassed;
+
+            if (remaining <= TimeSpan.Zero)
+            {
+                // Stop activity and auto-submit code
+                await StopActivity(activityId);
+
+                var code = await GetCode(userId, activityId);
+                if (string.IsNullOrWhiteSpace(code))
+                {
+                    // Assume empty code submission if none was typed
+                    code = "";
+                }
+
+                await SubmitStudentCode(code, userId, activityId);
+
+                return (false, 0); // Timer expired
+            }
+
+            return (true, (int)remaining.TotalSeconds);
+        }
     }
 
 }

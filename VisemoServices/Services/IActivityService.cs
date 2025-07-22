@@ -19,6 +19,7 @@ namespace VisemoServices.Services
         Task<bool> GetStudentStatus(int userId, int activityId);
         Task<string?> GetCode(int userId, int activityId);
         Task<bool> CheckForPing(int userId, int activityId);
+        Task<(bool IsOngoing, int TimeRemainingSeconds)> GetActivityStatusAsync(int userId, int activityId);
     }
 
 }

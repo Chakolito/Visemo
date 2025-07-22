@@ -127,6 +127,18 @@ namespace VisemoServices.Controllers
             var result = await _activityService.CheckForPing(userId, activityId);
             return Ok(new { pinged = result });
         }
+
+        [HttpGet("GetActivityStatus")]
+        public async Task<IActionResult> GetActivityStatus(int userId, int activityId)
+        {
+            var result = await _activityService.GetActivityStatusAsync(userId, activityId);
+            return Ok(new
+            {
+                isOngoing = result.IsOngoing,
+                timeRemaining = result.TimeRemainingSeconds
+            });
+        }
+
     }
 }
 
