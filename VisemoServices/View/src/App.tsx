@@ -14,6 +14,7 @@ import TeacherLandingPage from './components/dashboards/teacher_dash/TeacherLand
 import CodeEditorPage from './components/dashboards/student_dash/ActivityPage/CodeEditorPage';
 import TeacherIde from './components/dashboards/teacher_dash/classroom/TeacherIde';
 import Playground from './components/common/TabSystem/playground';
+import StudentIde from './components/dashboards/student_dash/StudentIde';
 
 function App() {
   return (
@@ -45,6 +46,7 @@ function App() {
     {/* Student Dashboard */}
     <Route path="/student-dashboard" element={<StudentLandingPage />} />
     <Route path ="/editor" element={<CodeEditorPage/>}/>
+    <Route path="/student-ide/:activityId" element={<StudentIde />} />
 
     {/* Playground */}
     <Route path="/playground" element={<Playground />} />

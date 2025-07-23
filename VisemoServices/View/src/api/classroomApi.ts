@@ -99,14 +99,26 @@ export const getActivityById = async (activityId: number) => {
   return response.data;
 }
 
-export const startActivity = (activityId: number, userId: number) =>
+export const getActivityStatus = async (activityId: number, userId: number) => {
+  const token = localStorage.getItem("token");
+  if (!token) throw new Error("No token found — please log in");
+
+  const res = await API.get(`/Activity/GetActivityStatus`, {
+    params: { activityId, userId },
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  return res.data; 
+};
+
+export const startActivity = (activityId: number) =>
   API.post(`/Activity/StartActivity`, null, {
-    params: { activityId , userId },
+    params: { id: activityId },
   });
 
   export const stopActivity = (activityId: number) =>
   API.post(`/Activity/StopActivity`,null,{
-    params: { activityId },
+    params: { id: activityId },
   });
 
 export const submitPreAssessment = async ({
@@ -277,7 +289,7 @@ export const fetchSubmissionStatus = async (activityId: number, userId: number) 
 
   export const getSubmittedCode = async (activityId: number, userId: number) => {
   const res = await API.get("/Activity/GetStudentCode", {
-    params: { activityId, userId },
+    params: { userId, activityId },
   });
   return res.data; // { code: "..." }
 };

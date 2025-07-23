@@ -16,4 +16,5 @@ export interface Activity {
   instruction: string;
   createdAt: string;
   classroomId: number;
+  isEnded: boolean;
 }
