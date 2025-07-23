@@ -87,6 +87,7 @@ namespace VisemoServices.Services
                 return false; // Already started or ended
 
             activity.IsStarted = true;
+            activity.StartTime = DateTime.UtcNow;
             activity.CreatedAt = DateTime.UtcNow; // reset the start time
             await _context.SaveChangesAsync();
             return true;
@@ -277,6 +278,27 @@ namespace VisemoServices.Services
                 _context.SubmittedActivities.Add(submission);
                 await _context.SaveChangesAsync();
             }
+
+            return true;
+        }
+
+        public async Task<bool> StartStudentActivitySession(int userId, int activityId)
+        {
+            var existingSession = await _dbContext.ActivitySessions
+                .FirstOrDefaultAsync(s => s.UserId == userId && s.ActivityId == activityId);
+
+            if (existingSession != null)
+                return false; // Already started
+
+            var session = new ActivitySession
+            {
+                UserId = userId,
+                ActivityId = activityId,
+                StartTime = DateTime.UtcNow
+            };
+
+            _dbContext.ActivitySessions.Add(session);
+            await _context.SaveChangesAsync();
 
             return true;
         }

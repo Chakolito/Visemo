@@ -149,6 +149,12 @@ namespace VisemoServices.Controllers
             return Ok(new { WasAutoSubmitted = result });
         }
 
+        [HttpPost("StartSession")]
+        public async Task<IActionResult> StartSession([FromQuery] int userId, [FromQuery] int activityId)
+        {
+            var result = await _activityService.StartStudentActivitySession(userId, activityId);
+            return Ok(new { SessionStarted = result });
+        }
     }
 }
 
