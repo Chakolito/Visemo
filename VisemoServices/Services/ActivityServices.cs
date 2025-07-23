@@ -7,6 +7,8 @@ using VisemoAlgorithm.Service;
 using VisemoAlgorithm.Services;
 using VisemoServices.Data;
 using VisemoServices.Model;
+using VisemoServices.Dtos;
+using VisemoServices.Dtos.Activity;
 
 namespace VisemoServices.Services
 {
@@ -78,42 +80,27 @@ namespace VisemoServices.Services
             }
         }
 
-        public async Task<(bool Success, string Message)> StartActivity(int activityId, int userId)
+        public async Task<bool> StartActivity(int activityId)
         {
             var activity = await _context.Activities.FindAsync(activityId);
-            if (activity == null) return (false, "Activity not found");
-
-            if (activity.IsStarted) return (false, "Activity already started");
+            if (activity == null || activity.IsStarted || activity.IsEnded)
+                return false; // Already started or ended
 
             activity.IsStarted = true;
+            activity.CreatedAt = DateTime.UtcNow; // reset the start time
             await _context.SaveChangesAsync();
-
-            // Save session to Algorithm DB
-            var session = new ActivitySession
-            {
-                ActivityId = activityId,
-                UserId = userId,
-                StartTime = DateTime.UtcNow
-            };
-
-            await _dbContext.ActivitySessions.AddAsync(session);
-            await _dbContext.SaveChangesAsync();
-
-            return (true, "Activity started successfully");
+            return true;
         }
-
-        public async Task<(bool Success, string Message)> StopActivity(int activityId)
+        public async Task<bool> EndActivity(int activityId)
         {
             var activity = await _context.Activities.FindAsync(activityId);
-            if (activity == null) return (false, "Activity not found");
-
-            if (!activity.IsStarted)
-                return (false, "Activity is not currently running");
+            if (activity == null || activity.IsEnded)
+                return false;
 
             activity.IsStarted = false;
+            activity.IsEnded = true;
             await _context.SaveChangesAsync();
-
-            return (true, "Activity stopped successfully");
+            return true;
         }
 
         public async Task<(bool Success, string Message)> SubmitSelfAssessment(int userId, int activityId, string reasons, bool hasConcerns)
@@ -144,17 +131,28 @@ namespace VisemoServices.Services
 
         public async Task<SubmittedActivities> SubmitStudentCode(string Code, int userId, int activityId)
         {
-            var submittedActivity = new SubmittedActivities
+            var existingSubmission = await _context.SubmittedActivities
+                .FirstOrDefaultAsync(sa => sa.UserId == userId && sa.ActivityId == activityId);
+
+            if (existingSubmission != null)
             {
-                code = Code,
-                UserId = userId,
-                ActivityId = activityId
-            };
+                // Update existing submission
+                existingSubmission.code = Code;
+            }
+            else
+            {
+                // Create new submission
+                existingSubmission = new SubmittedActivities
+                {
+                    code = Code,
+                    UserId = userId,
+                    ActivityId = activityId
+                };
+                _context.SubmittedActivities.Add(existingSubmission);
+            }
 
-            _context.SubmittedActivities.Add(submittedActivity);
             await _context.SaveChangesAsync();
-
-            return submittedActivity;
+            return existingSubmission;
         }
 
         public async Task<SentimentReport> GenerateSentimentReport(int userId, int activityId)
@@ -183,38 +181,101 @@ namespace VisemoServices.Services
             return await _pingService.CheckForPing(userId, activityId);
         }
 
-        public async Task<(bool IsOngoing, int TimeRemainingSeconds)> GetActivityStatusAsync(int userId, int activityId)
+        public async Task<ActivityStatusDto> GetActivityStatus(int activityId, int userId)
         {
             var activity = await _context.Activities.FindAsync(activityId);
-            if (activity == null || !activity.IsStarted) return (false, 0);
+            if (activity == null)
+                return null;
 
-            var session = await _dbContext.ActivitySessions
-                .FirstOrDefaultAsync(s => s.ActivityId == activityId && s.UserId == userId);
-
-            if (session == null) return (false, 0);
-
-            var timePassed = DateTime.UtcNow - session.StartTime;
-            var remaining = activity.Timer - timePassed;
-
-            if (remaining <= TimeSpan.Zero)
+            // Already ended? Return status directly.
+            if (activity.IsEnded)
             {
-                // Stop activity and auto-submit code
-                await StopActivity(activityId);
-
-                var code = await GetCode(userId, activityId);
-                if (string.IsNullOrWhiteSpace(code))
+                return new ActivityStatusDto
                 {
-                    // Assume empty code submission if none was typed
-                    code = "";
-                }
-
-                await SubmitStudentCode(code, userId, activityId);
-
-                return (false, 0); // Timer expired
+                    ActivityId = activityId,
+                    IsStarted = false,
+                    RemainingTime = TimeSpan.Zero,
+                    HasExpired = true
+                };
             }
 
-            return (true, (int)remaining.TotalSeconds);
+            if (!activity.IsStarted)
+            {
+                return new ActivityStatusDto
+                {
+                    ActivityId = activityId,
+                    IsStarted = false,
+                    RemainingTime = activity.Timer,
+                    HasExpired = false
+                };
+            }
+
+            // Calculate elapsed time
+            var elapsedTime = DateTime.UtcNow - activity.CreatedAt;
+            var timeRemaining = activity.Timer - elapsedTime;
+
+            //  If time has expired
+            if (timeRemaining <= TimeSpan.Zero)
+            {
+                //  Auto-submit student code (if not yet submitted)
+                await AutoSubmitIfExpired(userId, activityId);
+
+                //  End the activity (stop it globally for everyone)
+                await EndActivity(activityId);
+
+                return new ActivityStatusDto
+                {
+                    ActivityId = activityId,
+                    IsStarted = false,
+                    RemainingTime = TimeSpan.Zero,
+                    HasExpired = true
+                };
+            }
+
+            //  Return ongoing status
+            return new ActivityStatusDto
+            {
+                ActivityId = activityId,
+                IsStarted = true,
+                RemainingTime = timeRemaining,
+                HasExpired = false
+            };
         }
+
+
+        public async Task<bool> AutoSubmitIfExpired(int activityId, int userId)
+        {
+            var activity = await _context.Activities.FindAsync(activityId);
+            if (activity == null || activity.StartTime == null)
+                return false;
+
+            var now = DateTime.UtcNow;
+            var hasExpired = now >= activity.StartTime.Value + activity.Timer;
+
+            if (!hasExpired)
+                return false;
+
+            bool alreadySubmitted = await _context.SubmittedActivities
+                .AnyAsync(s => s.ActivityId == activityId && s.UserId == userId);
+
+            if (!alreadySubmitted)
+            {
+                var submission = new SubmittedActivities
+                {
+                    ActivityId = activityId,
+                    UserId = userId,
+                    code = "// Auto-submitted due to time expiration",
+                    SubmittedAt = now,
+                    IsAutoSubmitted = true
+                };
+
+                _context.SubmittedActivities.Add(submission);
+                await _context.SaveChangesAsync();
+            }
+
+            return true;
+        }
+
     }
 
 }

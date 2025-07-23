@@ -2,6 +2,8 @@
 using VisemoServices.Services;
 using VisemoServices.Dtos.Activity;
 using VisemoAlgorithm.Services;
+using Microsoft.EntityFrameworkCore;
+using VisemoServices.Model;
 
 namespace VisemoServices.Controllers
 {
@@ -45,22 +47,23 @@ namespace VisemoServices.Controllers
         }
 
         [HttpPost("StartActivity")]
-        public async Task<IActionResult> StartActivity([FromQuery] int activityId, [FromQuery] int userId)
+        public async Task<IActionResult> StartActivity(int id)
         {
-            var result = await _activityService.StartActivity(activityId, userId);
-            if (!result.Success)
-                return BadRequest(result.Message);
+            var result = await _activityService.StartActivity(id);
+            if (!result)
+                return BadRequest("Activity has already started or ended.");
 
-            return Ok(result.Message);
+            return Ok("Activity started.");
         }
 
         [HttpPost("StopActivity")]
-        public async Task<IActionResult> StopActivity(int activityId)
+        public async Task<IActionResult> EndActivity(int id)
         {
-            var result = await _activityService.StopActivity(activityId);
-            if (!result.Success) return BadRequest(new { message = result.Message });
+            var result = await _activityService.EndActivity(id);
+            if (!result)
+                return BadRequest("Activity not found or already ended.");
 
-            return Ok(new { message = result.Message });
+            return Ok("Activity ended.");
         }
 
         [HttpPost("SubmitSelfAssessment")]
@@ -84,7 +87,7 @@ namespace VisemoServices.Controllers
         }
 
         [HttpPost("SubmitStudentCode")]
-        public async Task<IActionResult> SubmitStudentCode([FromBody] SubmitActivitiesDto dto)
+        public async Task<IActionResult> SubmitActivity([FromBody] SubmitActivitiesDto dto)
         {
             var result = await _activityService.SubmitStudentCode(dto.Code, dto.UserId, dto.ActivityId);
             return Ok(result);
@@ -129,14 +132,21 @@ namespace VisemoServices.Controllers
         }
 
         [HttpGet("GetActivityStatus")]
-        public async Task<IActionResult> GetActivityStatus(int userId, int activityId)
+        public async Task<IActionResult> GetActivityStatus(int activityId, int userId)
         {
-            var result = await _activityService.GetActivityStatusAsync(userId, activityId);
-            return Ok(new
-            {
-                isOngoing = result.IsOngoing,
-                timeRemaining = result.TimeRemainingSeconds
-            });
+            var result = await _activityService.GetActivityStatus(activityId, userId);
+
+            if (result == null)
+                return NotFound("Activity not found or invalid user.");
+
+            return Ok(result);
+        }
+
+        [HttpPost("AutoSubmitIfExpired")]
+        public async Task<IActionResult> AutoSubmitIfExpired([FromQuery] int userId, [FromQuery] int activityId)
+        {
+            var result = await _activityService.AutoSubmitIfExpired(activityId, userId);
+            return Ok(new { WasAutoSubmitted = result });
         }
 
     }
