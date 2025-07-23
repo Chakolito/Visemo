@@ -1,14 +1,14 @@
-import React, { useEffect, useState } from "react";
+import React, { JSX, useEffect, useState } from "react";
 import { Activity } from "../../../../types/classroom";
 import {
   startActivity,
   stopActivity,
-  getActivities,
   fetchAggregatedEmotions,
   getClassroomUsers,
   fetchStudentStatus,
   fetchSubmissionStatus,
   getGenerateReport,
+  getActivityStatus,
 } from "../../../../api/classroomApi";
 import PreAssessment from "./PreAssessment";
 import CameraAccess from "../../student_dash/ActivityPage/CameraAccess";
@@ -20,7 +20,73 @@ interface ActivityDetailsProps {
   role: "Teacher" | "Student";
 }
 
+
 const COLORS = ["#00C49F", "#FFBB28", "#FF8042"];
+const INTERPRETATION_UNLOCK_SECONDS = 600;
+
+const emotionIcons: Record<string, JSX.Element> = {
+  Positive: (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 122.88 122.88" width="32" height="32">
+      <g>
+        <path fill="#FBD433" d="M45.54,2.11c32.77-8.78,66.45,10.67,75.23,43.43c8.78,32.77-10.67,66.45-43.43,75.23 
+        c-32.77,8.78-66.45-10.67-75.23-43.43C-6.67,44.57,12.77,10.89,45.54,2.11L45.54,2.11z"/>
+        <path fill="#141518" d="M41.89,27.86c4.3,0,7.78,4.91,7.78,10.97c0,6.06-3.48,10.97-7.78,10.97s-7.78-4.91-7.78-10.97 
+        C34.11,32.77,37.59,27.86,41.89,27.86L41.89,27.86z M28.55,67.12c16.68-0.52,51.01,0.29,65.78-0.04 
+        C94.33,106.85,28.55,110.65,28.55,67.12L28.55,67.12z M80.99,27.86c4.3,0,7.78,4.91,7.78,10.97c0,6.06-3.48,10.97-7.78,10.97 
+        c-4.3,0-7.78-4.91-7.78-10.97C73.21,32.77,76.69,27.86,80.99,27.86L80.99,27.86z"/>
+      </g>
+    </svg>
+  ),
+  Neutral: (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="32" height="32">
+      <circle fill="#FBD433" cx="256" cy="256" r="256"/>
+      <path fill="#40270E" d="M148.542 353.448c-11.076 0-20.055-8.979-20.055-20.054 0-11.076 8.979-20.055 20.055-20.055h214.917c11.075 0 20.054 8.979 20.054 20.055 0 11.075-8.979 20.054-20.054 20.054H148.542zm161.919-125.465c-11.076 0-20.055-8.979-20.055-20.055s8.979-20.055 20.055-20.055h65.814c11.075 0 20.054 8.979 20.054 20.055s-8.979 20.055-20.054 20.055h-65.814zm-174.735 0c-11.076 0-20.055-8.979-20.055-20.055s8.979-20.055 20.055-20.055h64.45c11.076 0 20.055 8.979 20.055 20.055s-8.979 20.055-20.055 20.055h-64.45z"/>
+    </svg>
+  ),
+  Negative: (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 122.88 122.88" width="32" height="32">
+      <g>
+        <path fill="#FBD433" d="M45.54,2.11c32.77-8.78,66.45,10.67,75.23,43.43c8.78,32.77-10.67,66.45-43.43,75.23 
+        c-32.77,8.78-66.45-10.67-75.23-43.43C-6.67,44.57,12.77,10.89,45.54,2.11L45.54,2.11z"/>
+        <path fill="#141518" d="M45.78,32.27c4.3,0,7.78,5.05,7.78,11.27c0,6.22-3.48,11.27-7.78,11.27c-4.3,0-7.78-5.05-7.78-11.27 
+        C38,37.32,41.48,32.27,45.78,32.27L45.78,32.27z M28.12,94.7c16.69-21.63,51.01-21.16,65.78,0.04l2.41-2.39 
+        c-16.54-28.07-51.56-29.07-70.7-0.15L28.12,94.7L28.12,94.7z M77.1,32.27c4.3,0,7.78,5.05,7.78,11.27c0,6.22-3.48,11.27-7.78,11.27 
+        c-4.3,0-7.78-5.05-7.78-11.27C69.31,37.32,72.8,32.27,77.1,32.27L77.1,32.27z"/>
+      </g>
+    </svg>
+  )
+};
+
+
+const renderCustomLabel = (props: any) => {
+  const { cx, cy, midAngle, outerRadius, name } = props;
+
+  const RADIAN = Math.PI / 180;
+  const emojiSize = 40;
+  const baseRadius = outerRadius * 1.4;
+  const radius =
+    name === 'Neutral'
+      ? baseRadius * 0.9 // pull Neutral closer
+      : baseRadius;
+
+  const x = cx + radius * Math.cos(-midAngle * RADIAN);
+  const y = cy + radius * Math.sin(-midAngle * RADIAN);
+
+  return (
+    <foreignObject
+      x={x - emojiSize / 2}
+      y={y - emojiSize / 2}
+      width={emojiSize}
+      height={emojiSize}
+    >
+      <div
+        style={{ width: emojiSize, height: emojiSize }}
+      >
+        {emotionIcons[name as keyof typeof emotionIcons]}
+      </div>
+    </foreignObject>
+  );
+};
 
 const ActivityDetails: React.FC<ActivityDetailsProps> = ({
   activity,
@@ -29,6 +95,8 @@ const ActivityDetails: React.FC<ActivityDetailsProps> = ({
 }) => {
   const [isRunning, setIsRunning] = useState(false);
   const [isStartedByTeacher, setIsStartedByTeacher] = useState(false);
+  const [isEnded, setIsEnded] = useState(activity.isEnded || false);
+  const [showStopModal, setShowStopModal] = useState(false);
   const [step, setStep] = useState<"details" | "pre" | "camera">("details");
   const [submitted, setSubmitted] = useState<boolean | null>(null);
   const [students, setStudents] = useState<
@@ -47,22 +115,15 @@ const ActivityDetails: React.FC<ActivityDetailsProps> = ({
   ]);
   const [modalData, setModalData] = useState<any>(null);
 
-  const parseTime = (timeStr: string) => {
+  const [secondsLeft, setSecondsLeft] = useState(parseTime(activity.timer));
+
+  function parseTime(timeStr: string) {
     const [hh, mm, ss] = timeStr.split(":").map(Number);
     return hh * 3600 + mm * 60 + ss;
-  };
+  }
 
-  const initialSeconds = parseTime(activity.timer);
-  const [secondsLeft, setSecondsLeft] = useState(initialSeconds);
-  const elapsedTime = initialSeconds - secondsLeft;
-  const INTERPRETATION_UNLOCK_SECONDS = 600;
-
-  // Teacher starts activity
   const handleTeacherStart = async () => {
-    const userId = Number(localStorage.getItem("userId"));
-    if (!userId) return;
-
-    await startActivity(activity.id, userId);
+    await startActivity(activity.id);
     setIsStartedByTeacher(true);
     setIsRunning(true);
   };
@@ -71,10 +132,14 @@ const ActivityDetails: React.FC<ActivityDetailsProps> = ({
     await stopActivity(activity.id);
     setIsStartedByTeacher(false);
     setIsRunning(false);
+    setSecondsLeft(0);
+    setIsEnded(true);
   };
 
   const handleStudentStart = () => {
-    if (isStartedByTeacher) setStep("pre");
+    if (isStartedByTeacher) {
+      setStep("pre");
+    }
   };
 
   useEffect(() => {
@@ -87,47 +152,75 @@ const ActivityDetails: React.FC<ActivityDetailsProps> = ({
   }, [activity.id, role]);
 
   useEffect(() => {
-    if (!isRunning) return;
-    const interval = setInterval(() => {
-      setSecondsLeft((prev) => {
-        if (prev <= 1) {
-          clearInterval(interval);
-          setIsRunning(false);
-          return 0;
+  let syncInterval: NodeJS.Timeout;
+  let countdownInterval: NodeJS.Timeout;
+
+  const syncWithBackend = async () => {
+    const userId = Number(localStorage.getItem("userId"));
+    const status = await getActivityStatus(activity.id, userId);
+
+    if (!status) return;
+
+    if (status.hasExpired) {
+      setIsRunning(false);
+      setIsEnded(true);
+      setIsStartedByTeacher(false);
+      setSecondsLeft(0);
+      clearInterval(syncInterval);
+      clearInterval(countdownInterval);
+      return;
+    }
+
+    if (status.isStarted) {
+      setIsStartedByTeacher(true);
+      setIsRunning(true);
+
+      const [hh, mm, ss] = status.remainingTime.split(":").map((v: string) => Math.floor(Number(v)));
+      const newSeconds = hh * 3600 + mm * 60 + ss;
+
+      // only update if backend has a lower time remaining
+      setSecondsLeft(prev => {
+        if (!isRunning || newSeconds < prev) {
+          return newSeconds;
         }
-        return prev - 1;
+        return prev;
       });
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [isRunning]);
 
-  useEffect(() => {
-    if (role !== "Student") return;
+    } else {
+      setIsStartedByTeacher(false);
+      setIsRunning(false);
+      // do NOT reset timer here
+    }
+  };
 
-    const interval = setInterval(async () => {
-      const activities: Activity[] = await getActivities(activity.classroomId);
-      const updated = activities.find((a) => a.id === activity.id);
-      if (updated?.isStarted) {
-        setIsStartedByTeacher(true);
-        if (!isRunning) {
-          setSecondsLeft(parseTime(updated.timer));
-          setIsRunning(true);
+  if (role === "Teacher" || role === "Student") {
+    syncWithBackend();
+
+    syncInterval = setInterval(syncWithBackend, 1_000);
+
+    countdownInterval = setInterval(() => {
+      setSecondsLeft(prev => {
+        if (isRunning && prev > 0) {
+          return prev - 1;
         }
-      } else {
-        setIsStartedByTeacher(false);
-        setIsRunning(false);
-      }
-    }, 3000);
+        return prev;
+      });
+    }, 1_000);
+  }
 
-    return () => clearInterval(interval);
-  }, [activity.id, activity.classroomId, role, isRunning]);
+  return () => {
+    clearInterval(syncInterval);
+    clearInterval(countdownInterval);
+  };
+}, [activity.id, role, isRunning]);
+
 
   const setEmotionPercentages = (data: {
     Positive: number;
     Neutral: number;
     Negative: number;
   }) => {
-    const total = data.Positive + data.Neutral + data.Negative || 1;
+    const total = Math.max(data.Positive + data.Neutral + data.Negative, 1);
     setEmotionData([
       { name: "Positive", value: Math.round((data.Positive / total) * 100) },
       { name: "Neutral", value: Math.round((data.Neutral / total) * 100) },
@@ -136,28 +229,63 @@ const ActivityDetails: React.FC<ActivityDetailsProps> = ({
   };
 
   useEffect(() => {
-    if (role !== "Teacher" || !isRunning) return;
+  if (role !== "Teacher") return;
 
-    const interval = setInterval(async () => {
-      if (!selectedStudent) {
-        const result = await fetchAggregatedEmotions(activity.id);
-        setEmotionPercentages({
-          Positive: result.totalPositiveEmotions || 0,
-          Neutral: result.totalNeutralEmotions || 0,
-          Negative: result.totalNegativeEmotions || 0,
-        });
-      }
-    }, 3000);
+  const fetchClassEmotions = async () => {
+    const result = await fetchAggregatedEmotions(activity.id);
+    setEmotionPercentages({
+      Positive: result.totalPositiveEmotions || 0,
+      Neutral: result.totalNeutralEmotions || 0,
+      Negative: result.totalNegativeEmotions || 0,
+    });
+  };
 
+  if (isRunning) {
+    fetchClassEmotions(); // initial fetch
+    const interval = setInterval(fetchClassEmotions, 3000);
     return () => clearInterval(interval);
-  }, [isRunning, role, activity.id, selectedStudent]);
+  }
+
+  // after stopped, fetch once & keep it
+  if (!isRunning && isEnded) {
+    fetchClassEmotions();
+  }
+}, [isRunning, isEnded, role, activity.id]);
+
+  useEffect(() => {
+  if (role !== "Teacher" || !selectedStudent) return;
+
+  const fetchStudentEmotions = async () => {
+    const result = await fetchStudentStatus(activity.id, selectedStudent.id);
+    setEmotionPercentages({
+      Positive: result.emotions.positive || 0,
+      Neutral: result.emotions.neutral || 0,
+      Negative: result.emotions.negative || 0,
+    });
+  };
+
+  if (isRunning) {
+    fetchStudentEmotions(); // initial fetch
+    const interval = setInterval(fetchStudentEmotions, 3000);
+    return () => clearInterval(interval);
+  }
+
+  if (!isRunning && isEnded) {
+    fetchStudentEmotions();
+  }
+}, [isRunning, isEnded, role, activity.id, selectedStudent]);
 
   useEffect(() => {
     if (role !== "Teacher") return;
 
-    getClassroomUsers(activity.classroomId).then((users) => {
-      setStudents(users.filter((u: any) => u.role === "Student"));
-    });
+    getClassroomUsers(activity.classroomId).then((users: {
+        id: number;
+        firstName: string;
+        lastName: string;
+        role: string;
+      }[]) => {
+        setStudents(users.filter((u) => u.role === "Student"));
+      });
   }, [role, activity.classroomId]);
 
   const handleStudentClick = (student: typeof students[0]) => {
@@ -192,6 +320,8 @@ const ActivityDetails: React.FC<ActivityDetailsProps> = ({
     const secs = String(totalSeconds % 60).padStart(2, "0");
     return `${hrs}:${mins}:${secs}`;
   };
+
+  const elapsedTime = activity.timer ? parseTime(activity.timer) - secondsLeft : 0;
 
   if (step === "pre") {
     return (
@@ -228,32 +358,43 @@ const ActivityDetails: React.FC<ActivityDetailsProps> = ({
             <p className="font-mono text-xl mb-4">{formatTime(secondsLeft)}</p>
           )}
 
-          {/* Teacher Buttons */}
-          {role === "Teacher" &&
-            (!isStartedByTeacher ? (
-              <button
-                onClick={handleTeacherStart}
-                className="px-4 py-2 bg-green-500 text-white rounded mb-4"
-              >
-                Start Activity
-              </button>
-            ) : (
-              <button
-                onClick={handleTeacherStop}
-                className="px-4 py-2 bg-yellow-400 text-black rounded mb-4"
-              >
-                Pause Activity
-              </button>
-            ))}
+          {role === "Teacher" && (
+            <div className="flex gap-2 mb-4">
+              {!isEnded ? (
+                <button
+                  onClick={handleTeacherStart}
+                  disabled={isStartedByTeacher}
+                  className={`px-4 py-2 rounded ${
+                    isStartedByTeacher
+                      ? "bg-gray-400 text-white"
+                      : "bg-green-500 text-white"
+                  }`}
+                >
+                  {isStartedByTeacher ? "Started" : "Start Activity"}
+                </button>
+              ) : (
+                <div className="px-4 py-2 rounded bg-gray-600 text-white">
+                  Activity Ended
+                </div>
+              )}
 
-          {/* Student Buttons */}
+              {isStartedByTeacher && !isEnded && (
+                <button
+                  onClick={() => setShowStopModal(true)}
+                  className="px-4 py-2 bg-red-500 text-white rounded"
+                >
+                  Stop Activity
+                </button>
+              )}
+            </div>
+          )}
+
           {role === "Student" &&
             (submitted ? (
               <button
                 onClick={() => {
-                  const userId = Number(localStorage.getItem("userId"));
                   window.open(
-                    `/teacher-ide/${activity.id}/${userId}`,
+                    `/student-ide/${activity.id}`,
                     "_blank",
                     "noopener,noreferrer"
                   );
@@ -265,16 +406,17 @@ const ActivityDetails: React.FC<ActivityDetailsProps> = ({
             ) : (
               <button
                 onClick={handleStudentStart}
-                disabled={!isStartedByTeacher}
+                disabled={!isStartedByTeacher || isEnded}
                 className={`px-4 py-2 rounded text-white mb-4 ${
-                  isStartedByTeacher ? "bg-green-500" : "bg-gray-400"
+                  isStartedByTeacher && !isEnded ? "bg-green-500" : "bg-gray-400"
                 }`}
               >
-                {isStartedByTeacher ? "Start Activity" : "Waiting for Teacher…"}
+                {isStartedByTeacher && !isEnded
+                  ? (isRunning ? "Continue Activity" : "Start Activity")
+                  : "Waiting for Teacher…"}
               </button>
             ))}
 
-          {/* Teacher Student List */}
           {role === "Teacher" && (
             <div>
               <h2 className="text-lg font-bold mb-2">Student Works</h2>
@@ -297,7 +439,6 @@ const ActivityDetails: React.FC<ActivityDetailsProps> = ({
           )}
         </div>
 
-        {/* Teacher Emotion Data */}
         {role === "Teacher" && (
           <div className="flex-1 p-4">
             <h2 className="text-lg font-bold mt-4">
@@ -306,7 +447,8 @@ const ActivityDetails: React.FC<ActivityDetailsProps> = ({
                 : "Class Emotion Overview"}
             </h2>
 
-            <PieChart width={300} height={300}>
+            <div className="flex flex-wrap gap-20 items-center">
+            <PieChart width={320} height={300}>
               <Pie
                 data={emotionData}
                 dataKey="value"
@@ -314,7 +456,7 @@ const ActivityDetails: React.FC<ActivityDetailsProps> = ({
                 cx="50%"
                 cy="50%"
                 outerRadius={100}
-                label
+                label={renderCustomLabel}
                 onClick={async () => {
                   if (
                     selectedStudent &&
@@ -335,12 +477,32 @@ const ActivityDetails: React.FC<ActivityDetailsProps> = ({
                   />
                 ))}
               </Pie>
-              <Tooltip formatter={(value: number, name: string) => [`${value}%`, name]} />
+              <Tooltip
+                formatter={(value: number, name: string) => [`${value}%`, name]}
+              />
               <Legend />
             </PieChart>
+
+           {selectedStudent && (
+        <div className="ml-4">
+          <button
+            onClick={() => {
+              window.open(
+                `/teacher-ide/${activity.id}/${selectedStudent.id}`,
+                "_blank",
+                "noopener,noreferrer"
+              );
+            }}
+            className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded"
+          >
+            View Activity
+          </button>
+        </div>
+            )}
+          </div>
           </div>
         )}
-      </div>
+        </div>
 
       {modalData && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -363,6 +525,33 @@ const ActivityDetails: React.FC<ActivityDetailsProps> = ({
                 {modalData.interpretation || "No interpretation available."}
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {showStopModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white text-black p-6 rounded-lg shadow-lg w-[350px] relative">
+            <h2 className="text-lg font-bold mb-4">Confirm Stop</h2>
+            <p>Are you sure you want to stop the activity?</p>
+
+            <div className="flex justify-end gap-2 mt-4">
+              <button
+                onClick={() => setShowStopModal(false)}
+                className="px-4 py-2 bg-gray-300 rounded"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  await handleTeacherStop();
+                  setShowStopModal(false);
+                }}
+                className="px-4 py-2 bg-red-500 text-white rounded"
+              >
+                Stop
+              </button>
+            </div>
           </div>
         </div>
       )}

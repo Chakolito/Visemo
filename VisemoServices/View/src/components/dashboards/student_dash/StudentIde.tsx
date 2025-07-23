@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from "react";
-import CodeEditor from "../../student_dash/ActivityPage/CodeEditor";
-import Navbar from "../../Navbar";  // adjust path
-import { getSubmittedCode } from "../../../../api/classroomApi";
 import { useParams } from "react-router-dom";
+import Navbar from "../Navbar";
+import CodeEditor from "./ActivityPage/CodeEditor";
+import { getSubmittedCode } from "../../../api/classroomApi";
 
-const TeacherIde: React.FC = () => {
-  const { activityId, userId } = useParams<{ activityId: string; userId: string }>();
+const StudentIde: React.FC = () => {
+  const { activityId } = useParams<{ activityId: string }>();
+  const userId = Number(localStorage.getItem("userId"));
 
   const [code, setCode] = useState<string>("Loading...");
   const [loading, setLoading] = useState(true);
@@ -18,11 +19,10 @@ const TeacherIde: React.FC = () => {
         setLoading(false);
         return;
       }
-      console.log({ activityId, userId });
 
       try {
-        const result = await getSubmittedCode(Number(activityId), Number(userId));
-        if (!result || !result.code) {
+        const result = await getSubmittedCode(Number(activityId), userId);
+        if (!result?.code) {
           setCode("// No code submitted yet.");
         } else {
           setCode(result.code);
@@ -39,19 +39,11 @@ const TeacherIde: React.FC = () => {
   }, [activityId, userId]);
 
   if (loading) {
-    return (
-      <div className="p-4 text-center">
-        <p>Loading submitted code...</p>
-      </div>
-    );
+    return <div className="p-4 text-center">Loading submitted code...</div>;
   }
 
   if (error) {
-    return (
-      <div className="p-4 text-center text-red-500">
-        <p>{error}</p>
-      </div>
-    );
+    return <div className="p-4 text-center text-red-500">{error}</div>;
   }
 
   return (
@@ -61,7 +53,7 @@ const TeacherIde: React.FC = () => {
       <div className="flex-1">
         <CodeEditor
           activityId={Number(activityId)}
-          instruction="Viewing student submission"
+          instruction="Viewing your submission"
           readonly
           submittedCode={code}
           isCapturing={false}
@@ -74,4 +66,4 @@ const TeacherIde: React.FC = () => {
   );
 };
 
-export default TeacherIde;
+export default StudentIde;

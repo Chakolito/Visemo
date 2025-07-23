@@ -37,7 +37,6 @@ const ClassRoomGrid: React.FC<ClassRoomGridProps> = ({
           >
             <div className="bg-yellow-300 p-4 relative">
               <h2 className="text-xl font-bold">{classroom.className}</h2>
-              <p className="text-sm">Teacher: {classroom.teacherName}</p>
 
               {role === "Teacher" && (
                 <button
