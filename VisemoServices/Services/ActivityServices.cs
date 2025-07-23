@@ -187,6 +187,10 @@ namespace VisemoServices.Services
             if (activity == null)
                 return null;
 
+            var user = await _context.Users.FindAsync(userId);
+            if (user == null)
+                return null;
+
             // Already ended? Return status directly.
             if (activity.IsEnded)
             {
@@ -210,17 +214,19 @@ namespace VisemoServices.Services
                 };
             }
 
-            // Calculate elapsed time
+            // Calculate elapsed time based on globally started timer
             var elapsedTime = DateTime.UtcNow - activity.CreatedAt;
             var timeRemaining = activity.Timer - elapsedTime;
 
-            //  If time has expired
             if (timeRemaining <= TimeSpan.Zero)
             {
-                //  Auto-submit student code (if not yet submitted)
-                await AutoSubmitIfExpired(userId, activityId);
+                // Only auto-submit for students
+                if (user.role == "Student")
+                {
+                    await AutoSubmitIfExpired(userId, activityId);
+                }
 
-                //  End the activity (stop it globally for everyone)
+                // End the activity globally (teacher side also gets this result)
                 await EndActivity(activityId);
 
                 return new ActivityStatusDto
@@ -232,7 +238,6 @@ namespace VisemoServices.Services
                 };
             }
 
-            //  Return ongoing status
             return new ActivityStatusDto
             {
                 ActivityId = activityId,
