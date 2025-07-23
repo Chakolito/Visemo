@@ -3,11 +3,11 @@ using Microsoft.EntityFrameworkCore;
 using System.Xml.Linq;
 using VisemoAlgorithm.Data;
 using VisemoAlgorithm.Model;
+using VisemoAlgorithm.Dtos;
 using VisemoAlgorithm.Service;
 using VisemoAlgorithm.Services;
 using VisemoServices.Data;
 using VisemoServices.Model;
-using VisemoServices.Dtos;
 using VisemoServices.Dtos.Activity;
 
 namespace VisemoServices.Services
@@ -177,7 +177,7 @@ namespace VisemoServices.Services
             return submission?.code;
         }
 
-        public async Task<bool> CheckForPing(int userId, int activityId)
+        public async Task<PingCheckResultDto> CheckForPing(int userId, int activityId)
         {
             return await _pingService.CheckForPing(userId, activityId);
         }
@@ -298,10 +298,10 @@ namespace VisemoServices.Services
             };
 
             _dbContext.ActivitySessions.Add(session);
-            await _context.SaveChangesAsync();
+            await _dbContext.SaveChangesAsync();
 
             return true;
-        }
+        }   
 
     }
 

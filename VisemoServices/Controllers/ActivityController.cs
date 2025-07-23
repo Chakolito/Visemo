@@ -125,10 +125,10 @@ namespace VisemoServices.Controllers
         }
 
         [HttpGet("CheckPing")]
-        public async Task<IActionResult> CheckForPing([FromQuery] int userId, [FromQuery] int activityId)
+        public async Task<IActionResult> Check([FromQuery] int userId, [FromQuery] int activityId)
         {
             var result = await _activityService.CheckForPing(userId, activityId);
-            return Ok(new { pinged = result });
+            return Ok(result);
         }
 
         [HttpGet("GetActivityStatus")]
