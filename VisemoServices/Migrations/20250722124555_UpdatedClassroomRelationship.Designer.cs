@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using VisemoServices.Data;
 
@@ -10,9 +11,11 @@ using VisemoServices.Data;
 namespace VisemoServices.Migrations
 {
     [DbContext(typeof(DatabaseContext))]
-    partial class DatabaseContextModelSnapshot : ModelSnapshot
+    [Migration("20250722124555_UpdatedClassroomRelationship")]
+    partial class UpdatedClassroomRelationship
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -50,9 +53,6 @@ namespace VisemoServices.Migrations
                         .IsRequired()
                         .HasColumnType("longtext");
 
-                    b.Property<bool>("IsEnded")
-                        .HasColumnType("tinyint(1)");
-
                     b.Property<bool>("IsStarted")
                         .HasColumnType("tinyint(1)");
 
@@ -60,9 +60,6 @@ namespace VisemoServices.Migrations
                         .IsRequired()
                         .HasMaxLength(255)
                         .HasColumnType("varchar(255)");
-
-                    b.Property<DateTime?>("StartTime")
-                        .HasColumnType("datetime(6)");
 
                     b.Property<TimeSpan>("Timer")
                         .HasColumnType("time(6)");
@@ -103,12 +100,6 @@ namespace VisemoServices.Migrations
 
                     b.Property<int>("ActivityId")
                         .HasColumnType("int");
-
-                    b.Property<bool>("IsAutoSubmitted")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<DateTime>("SubmittedAt")
-                        .HasColumnType("datetime(6)");
 
                     b.Property<int>("UserId")
                         .HasColumnType("int");

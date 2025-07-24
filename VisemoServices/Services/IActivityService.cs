@@ -1,4 +1,6 @@
-﻿using VisemoAlgorithm.Model;
+﻿using VisemoAlgorithm.Dtos;
+using VisemoAlgorithm.Model;
+using VisemoServices.Dtos.Activity;
 using VisemoServices.Model;
 namespace VisemoServices.Services
 
@@ -10,15 +12,20 @@ namespace VisemoServices.Services
         Task<IEnumerable<Activity>> GetActivitiesByClassroomAsync(int classroomId);
         Task<Activity> GetActivityById(int id);
         Task DeleteActivityAsync(int id);
-        Task<(bool Success, string Message)> StartActivity(int activityId, int userId);
-        Task<(bool Success, string Message)> StopActivity(int activityId);
+        Task<bool> StartActivity(int activityId);
+        Task<bool> EndActivity(int activityId);
         Task<(bool Success, string Message)> SubmitSelfAssessment(int userId, int activityId, string reasons, bool hasConcerns);
         Task<(bool Success, string Message)> SubmitBuild(bool isSuccessful, int userId, int activityId);
         Task<SubmittedActivities> SubmitStudentCode(string Code, int userId, int activityId);
         Task<SentimentReport> GenerateSentimentReport(int userId, int activityId);
         Task<bool> GetStudentStatus(int userId, int activityId);
         Task<string?> GetCode(int userId, int activityId);
-        Task<bool> CheckForPing(int userId, int activityId);
+        Task<PingCheckResultDto> CheckForPing(int userId, int activityId);
+        Task<ActivityStatusDto> GetActivityStatus(int activityId, int userId);
+        Task<bool> AutoSubmitIfExpired(int activityId, int userId);
+        Task<bool> StartStudentActivitySession(int userId, int activityId);
+        Task AcknowledgePing(int userId, int activityId, int pingBatchIndex);
+        Task<bool> HasAcknowledgedPing(int userId, int activityId, int pingBatchIndex);
     }
 
 }

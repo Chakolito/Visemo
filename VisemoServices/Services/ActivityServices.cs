@@ -3,10 +3,12 @@ using Microsoft.EntityFrameworkCore;
 using System.Xml.Linq;
 using VisemoAlgorithm.Data;
 using VisemoAlgorithm.Model;
+using VisemoAlgorithm.Dtos;
 using VisemoAlgorithm.Service;
 using VisemoAlgorithm.Services;
 using VisemoServices.Data;
 using VisemoServices.Model;
+using VisemoServices.Dtos.Activity;
 
 namespace VisemoServices.Services
 {
@@ -78,42 +80,28 @@ namespace VisemoServices.Services
             }
         }
 
-        public async Task<(bool Success, string Message)> StartActivity(int activityId, int userId)
+        public async Task<bool> StartActivity(int activityId)
         {
             var activity = await _context.Activities.FindAsync(activityId);
-            if (activity == null) return (false, "Activity not found");
-
-            if (activity.IsStarted) return (false, "Activity already started");
+            if (activity == null || activity.IsStarted || activity.IsEnded)
+                return false; // Already started or ended
 
             activity.IsStarted = true;
+            activity.StartTime = DateTime.UtcNow;
+            activity.CreatedAt = DateTime.UtcNow; // reset the start time
             await _context.SaveChangesAsync();
-
-            // Save session to Algorithm DB
-            var session = new ActivitySession
-            {
-                ActivityId = activityId,
-                UserId = userId,
-                StartTime = DateTime.UtcNow
-            };
-
-            await _dbContext.ActivitySessions.AddAsync(session);
-            await _dbContext.SaveChangesAsync();
-
-            return (true, "Activity started successfully");
+            return true;
         }
-
-        public async Task<(bool Success, string Message)> StopActivity(int activityId)
+        public async Task<bool> EndActivity(int activityId)
         {
             var activity = await _context.Activities.FindAsync(activityId);
-            if (activity == null) return (false, "Activity not found");
-
-            if (!activity.IsStarted)
-                return (false, "Activity is not currently running");
+            if (activity == null || activity.IsEnded)
+                return false;
 
             activity.IsStarted = false;
+            activity.IsEnded = true;
             await _context.SaveChangesAsync();
-
-            return (true, "Activity stopped successfully");
+            return true;
         }
 
         public async Task<(bool Success, string Message)> SubmitSelfAssessment(int userId, int activityId, string reasons, bool hasConcerns)
@@ -144,17 +132,28 @@ namespace VisemoServices.Services
 
         public async Task<SubmittedActivities> SubmitStudentCode(string Code, int userId, int activityId)
         {
-            var submittedActivity = new SubmittedActivities
+            var existingSubmission = await _context.SubmittedActivities
+                .FirstOrDefaultAsync(sa => sa.UserId == userId && sa.ActivityId == activityId);
+
+            if (existingSubmission != null)
             {
-                code = Code,
-                UserId = userId,
-                ActivityId = activityId
-            };
+                // Update existing submission
+                existingSubmission.code = Code;
+            }
+            else
+            {
+                // Create new submission
+                existingSubmission = new SubmittedActivities
+                {
+                    code = Code,
+                    UserId = userId,
+                    ActivityId = activityId
+                };
+                _context.SubmittedActivities.Add(existingSubmission);
+            }
 
-            _context.SubmittedActivities.Add(submittedActivity);
             await _context.SaveChangesAsync();
-
-            return submittedActivity;
+            return existingSubmission;
         }
 
         public async Task<SentimentReport> GenerateSentimentReport(int userId, int activityId)
@@ -178,9 +177,140 @@ namespace VisemoServices.Services
             return submission?.code;
         }
 
-        public async Task<bool> CheckForPing(int userId, int activityId)
+        public async Task<PingCheckResultDto> CheckForPing(int userId, int activityId)
         {
             return await _pingService.CheckForPing(userId, activityId);
+        }
+
+        public async Task<ActivityStatusDto> GetActivityStatus(int activityId, int userId)
+        {
+            var activity = await _context.Activities.FindAsync(activityId);
+            if (activity == null)
+                return null;
+
+            var user = await _context.Users.FindAsync(userId);
+            if (user == null)
+                return null;
+
+            // Already ended? Return status directly.
+            if (activity.IsEnded)
+            {
+                return new ActivityStatusDto
+                {
+                    ActivityId = activityId,
+                    IsStarted = false,
+                    RemainingTime = TimeSpan.Zero,
+                    HasExpired = true
+                };
+            }
+
+            if (!activity.IsStarted)
+            {
+                return new ActivityStatusDto
+                {
+                    ActivityId = activityId,
+                    IsStarted = false,
+                    RemainingTime = activity.Timer,
+                    HasExpired = false
+                };
+            }
+
+            // Calculate elapsed time based on globally started timer
+            var elapsedTime = DateTime.UtcNow - activity.CreatedAt;
+            var timeRemaining = activity.Timer - elapsedTime;
+
+            if (timeRemaining <= TimeSpan.Zero)
+            {
+                // Only auto-submit for students
+                if (user.role == "Student")
+                {
+                    await AutoSubmitIfExpired(userId, activityId);
+                }
+
+                // End the activity globally (teacher side also gets this result)
+                await EndActivity(activityId);
+
+                return new ActivityStatusDto
+                {
+                    ActivityId = activityId,
+                    IsStarted = false,
+                    RemainingTime = TimeSpan.Zero,
+                    HasExpired = true
+                };
+            }
+
+            return new ActivityStatusDto
+            {
+                ActivityId = activityId,
+                IsStarted = true,
+                RemainingTime = timeRemaining,
+                HasExpired = false
+            };
+        }
+
+
+        public async Task<bool> AutoSubmitIfExpired(int activityId, int userId)
+        {
+            var activity = await _context.Activities.FindAsync(activityId);
+            if (activity == null || activity.StartTime == null)
+                return false;
+
+            var now = DateTime.UtcNow;
+            var hasExpired = now >= activity.StartTime.Value + activity.Timer;
+
+            if (!hasExpired)
+                return false;
+
+            bool alreadySubmitted = await _context.SubmittedActivities
+                .AnyAsync(s => s.ActivityId == activityId && s.UserId == userId);
+
+            if (!alreadySubmitted)
+            {
+                var submission = new SubmittedActivities
+                {
+                    ActivityId = activityId,
+                    UserId = userId,
+                    code = "// Auto-submitted due to time expiration",
+                    SubmittedAt = now,
+                    IsAutoSubmitted = true
+                };
+
+                _context.SubmittedActivities.Add(submission);
+                await _context.SaveChangesAsync();
+            }
+
+            return true;
+        }
+
+        public async Task<bool> StartStudentActivitySession(int userId, int activityId)
+        {
+            var existingSession = await _dbContext.ActivitySessions
+                .FirstOrDefaultAsync(s => s.UserId == userId && s.ActivityId == activityId);
+
+            if (existingSession != null)
+                return false; // Already started
+
+            var session = new ActivitySession
+            {
+                UserId = userId,
+                ActivityId = activityId,
+                StartTime = DateTime.UtcNow
+            };
+
+            _dbContext.ActivitySessions.Add(session);
+            await _dbContext.SaveChangesAsync();
+
+            return true;
+        }
+
+        public async Task AcknowledgePing(int userId, int activityId, int pingBatchIndex)
+        {
+            await _pingService.AcknowledgePing(userId, activityId, pingBatchIndex);
+        }
+
+        public async Task<bool> HasAcknowledgedPing(int userId, int activityId, int pingBatchIndex)
+        {
+            return await _pingService.HasAcknowledgedPing(userId, activityId, pingBatchIndex);
         }
     }
 

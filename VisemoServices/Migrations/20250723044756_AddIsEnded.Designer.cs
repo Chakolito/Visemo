@@ -11,8 +11,8 @@ using VisemoServices.Data;
 namespace VisemoServices.Migrations
 {
     [DbContext(typeof(DatabaseContext))]
-    [Migration("20250721031845_UpdatedClassroomRelationship")]
-    partial class UpdatedClassroomRelationship
+    [Migration("20250723044756_AddIsEnded")]
+    partial class AddIsEnded
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -53,6 +53,9 @@ namespace VisemoServices.Migrations
                         .IsRequired()
                         .HasColumnType("longtext");
 
+                    b.Property<bool>("IsEnded")
+                        .HasColumnType("tinyint(1)");
+
                     b.Property<bool>("IsStarted")
                         .HasColumnType("tinyint(1)");
 
@@ -60,6 +63,9 @@ namespace VisemoServices.Migrations
                         .IsRequired()
                         .HasMaxLength(255)
                         .HasColumnType("varchar(255)");
+
+                    b.Property<DateTime?>("StartTime")
+                        .HasColumnType("datetime(6)");
 
                     b.Property<TimeSpan>("Timer")
                         .HasColumnType("time(6)");
@@ -100,6 +106,12 @@ namespace VisemoServices.Migrations
 
                     b.Property<int>("ActivityId")
                         .HasColumnType("int");
+
+                    b.Property<bool>("IsAutoSubmitted")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<DateTime>("SubmittedAt")
+                        .HasColumnType("datetime(6)");
 
                     b.Property<int>("UserId")
                         .HasColumnType("int");

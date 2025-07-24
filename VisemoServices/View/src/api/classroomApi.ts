@@ -99,14 +99,26 @@ export const getActivityById = async (activityId: number) => {
   return response.data;
 }
 
-export const startActivity = (activityId: number, userId: number) =>
+export const getActivityStatus = async (activityId: number, userId: number) => {
+  const token = localStorage.getItem("token");
+  if (!token) throw new Error("No token found — please log in");
+
+  const res = await API.get(`/Activity/GetActivityStatus`, {
+    params: { activityId, userId },
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  return res.data; 
+};
+
+export const startActivity = (activityId: number) =>
   API.post(`/Activity/StartActivity`, null, {
-    params: { activityId , userId },
+    params: { id: activityId },
   });
 
   export const stopActivity = (activityId: number) =>
   API.post(`/Activity/StopActivity`,null,{
-    params: { activityId },
+    params: { id: activityId },
   });
 
 export const submitPreAssessment = async ({
@@ -277,7 +289,7 @@ export const fetchSubmissionStatus = async (activityId: number, userId: number) 
 
   export const getSubmittedCode = async (activityId: number, userId: number) => {
   const res = await API.get("/Activity/GetStudentCode", {
-    params: { activityId, userId },
+    params: { userId, activityId },
   });
   return res.data; // { code: "..." }
 };
@@ -289,4 +301,60 @@ export const fetchSubmissionStatus = async (activityId: number, userId: number) 
     { params: { activityId, userId } } // query params
   );
   return res.data;
+};
+
+export const pingAlert = async (activityId: number, userId: number) => {
+  const token = localStorage.getItem("token");
+  if (!token) throw new Error("No token");
+
+  const res = await API.get(`/Activity/CheckPing`, {
+    params: { activityId, userId },
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  // Return full DTO
+  return res.data as {
+    acknowledged: any;
+    pingBatchIndex: number; pinged: boolean; reason: string 
+};
+};
+
+export const acknowledgePing = async (
+  activityId: number,
+  userId: number,
+  pingBatchIndex: number
+) => {
+  const token = localStorage.getItem("token");
+  if (!token) throw new Error("No token");
+
+  await API.post(
+    `/Activity/AcknowledgePing`,
+    null,
+    {
+      params: { activityId, userId, pingBatchIndex },
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+};
+
+export const startStudentSession = async (userId: number, activityId: number): Promise<boolean> => {
+  const token = localStorage.getItem("token");
+  if (!token) throw new Error("No token");
+
+  const res = await API.post(
+    `/Activity/StartSession`,
+    null,
+    {
+      params: { userId, activityId },
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+
+  return !!(res.data.sessionStarted || res.data.SessionStarted);
 };

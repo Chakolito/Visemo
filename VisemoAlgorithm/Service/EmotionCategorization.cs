@@ -58,6 +58,7 @@ namespace VisemoAlgorithm.Service
                 Timestamp = DateTime.UtcNow
             };
 
+            _context.EmotionLogs.Add(log);
             await _context.SaveChangesAsync();
         }
     }

@@ -11,6 +11,8 @@ namespace VisemoServices.Model
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public string Instruction { get; set; }
         public bool IsStarted { get; set; } = false;
+        public DateTime? StartTime { get; set; }
+        public bool IsEnded { get; set; } = false;
 
         // Foreign key to Classroom
         public int ClassroomId { get; set; }

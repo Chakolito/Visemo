@@ -10,16 +10,16 @@ import {
 
 interface CodeEditorProps {
   activityId?: number;
-  classroomId?: number;
   isCapturing?: boolean;
   stream?: MediaStream | null;
   onSnapshot?: (imageData: string) => void;
-  capturedImages?: Array<{ data: string; timestamp: string }>;
-  onViewImages?: () => void;
-  runBuild?: "success" | "fail" | null;
   instruction?: string;
   readonly?: boolean;
   submittedCode?: string;
+  viewMode?: boolean;
+  setEditorRef?: (editor: any) => void;
+  isEnded?: boolean;
+  onFinalSubmit?: () => void
 }
 
 const DEFAULT_CODE = `using System;
@@ -40,16 +40,20 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   instruction: initialInstruction,
   readonly = false,
   submittedCode,
+  viewMode = false,
+  setEditorRef,
+  isEnded = false,
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const [timeUntilNextCapture, setTimeUntilNextCapture] = useState(30);
+  const editorRef = useRef<monacoEditor.editor.IStandaloneCodeEditor | null>(null);
+
   const [code, setCode] = useState(submittedCode || DEFAULT_CODE);
   const [output, setOutput] = useState("");
   const [isRunning, setIsRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const editorRef = useRef<monacoEditor.editor.IStandaloneCodeEditor | null>(null);
-  const [instruction, setInstruction] = useState(initialInstruction || "Loading instructions...");
+  const [instruction, setInstruction] = useState(initialInstruction || "Loading...");
   const [videoReady, setVideoReady] = useState(false);
+  const [timeUntilNextCapture, setTimeUntilNextCapture] = useState(30);
   const [showSubmitModal, setShowSubmitModal] = useState(false);
 
   useEffect(() => {
@@ -120,8 +124,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
     if (isCapturing && stream) {
       setTimeUntilNextCapture(30);
 
-      captureInterval = setInterval(takeAndSubmitSnapshot, 30000);
-
+      captureInterval = setInterval(takeAndSubmitSnapshot, 30_000);
       countdownInterval = setInterval(() => {
         setTimeUntilNextCapture((prev) => (prev <= 1 ? 30 : prev - 1));
       }, 1000);
@@ -132,6 +135,26 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
       if (countdownInterval) clearInterval(countdownInterval);
     };
   }, [isCapturing, stream, takeAndSubmitSnapshot, videoReady]);
+
+  useEffect(() => {
+  const videoEl = videoRef.current;
+
+      if ((readonly || isEnded) && videoEl?.srcObject) {
+        const tracks = (videoEl.srcObject as MediaStream).getTracks();
+        tracks.forEach(track => track.stop());
+        videoEl.srcObject = null;
+        console.log("Camera stopped because readonly or isEnded.");
+      }
+
+      return () => {
+        if (videoEl?.srcObject) {
+          const tracks = (videoEl.srcObject as MediaStream).getTracks();
+          tracks.forEach(track => track.stop());
+          videoEl.srcObject = null;
+          console.log("Camera stopped on unmount.");
+        }
+      };
+    }, [readonly, isEnded]);
 
   const handleEditorWillMount = (monaco: typeof monacoEditor) => {
     monaco.editor.defineTheme("custom-dark", {
@@ -156,6 +179,8 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   ) => {
     editorRef.current = editor;
 
+    if (setEditorRef) setEditorRef(editor);
+
     if (readonly) {
       editor.updateOptions({ readOnly: true });
     }
@@ -168,24 +193,32 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
     });
   };
 
-  const handleRunCode = async () => {
-    await takeAndSubmitSnapshot();
+ const handleRunCode = async () => {
+  await takeAndSubmitSnapshot();
 
-    setIsRunning(true);
-    setError(null);
-    setOutput("");
-    let isSuccessful = false;
+  setIsRunning(true);
+  setError(null);
+  setOutput("");
+  let isSuccessful = false;
 
-    try {
-      const code = editorRef.current?.getValue() || "";
+  const code = editorRef.current?.getValue() || "";
+  const apiKeys = [
+    "18926c8cc2msh7decf0045ef743fp1d08e2jsn95f5b7baf376", // first
+    "04bbcf18ecmsh2ef5d6c16bb95bdp180920jsn4bfff42108cb", // fallback
+  ];
 
+  try {
+    let result = null;
+    let succeeded = false;
+
+    for (const apiKey of apiKeys) {
       const response = await fetch(
         "https://judge0-ce.p.rapidapi.com/submissions?base64_encoded=true&wait=true",
         {
           method: "POST",
           headers: {
             "content-type": "application/json",
-            "X-RapidAPI-Key": "04bbcf18ecmsh2ef5d6c16bb95bdp180920jsn4bfff42108cb",
+            "X-RapidAPI-Key": apiKey,
             "X-RapidAPI-Host": "judge0-ce.p.rapidapi.com",
           },
           body: JSON.stringify({
@@ -197,32 +230,53 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
         }
       );
 
-      const result = await response.json();
+      if (response.status === 429) {
+        console.warn(`API key ${apiKey} hit rate limit, trying next key...`);
+        continue; // try next key
+      }
 
-     if (result.stdout) {
-          isSuccessful = true;
-          setOutput(atob(result.stdout));
-        } else if (result.stderr) {
-          isSuccessful = false;
-          setError(atob(result.stderr));
-        } else if (result.compile_output) {
-          isSuccessful = false;
-          setError(atob(result.compile_output));
-        } else {
-          isSuccessful = false;
-          setError(result.status?.description || "Unknown error occurred.");
-        }
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(`HTTP ${response.status}: ${text}`);
+      }
 
-      const userId = Number(localStorage.getItem("userId"));
-      if (!userId || !activityId) return;
+      console.log(`✅ API key [${apiKey}] succeeded!`);
 
-      await submitBuild({ userId, activityId, isSuccessful });
-    } catch {
-      setError("An error occurred");
-    } finally {
-      setIsRunning(false);
+      result = await response.json();
+      succeeded = true;
+      break; // exit loop
     }
-  };
+
+    if (!succeeded) {
+      throw new Error("All API keys failed or rate limited.");
+    }
+
+      if (result.stdout) {
+        isSuccessful = true;
+        setOutput(atob(result.stdout));
+      } else if (result.stderr) {
+        isSuccessful = false;
+        setError(atob(result.stderr));
+      } else if (result.compile_output) {
+        isSuccessful = false;
+        setError(atob(result.compile_output));
+      } else {
+        isSuccessful = false;
+        setError(result.status?.description || "Unknown error occurred.");
+      }
+
+    const userId = Number(localStorage.getItem("userId"));
+    if (!userId || !activityId) return;
+
+    await submitBuild({ userId, activityId, isSuccessful });
+
+  } catch (err: any) {
+    console.error(err);
+    setError(err.message || "An error occurred");
+  } finally {
+    setIsRunning(false);
+  }
+};
 
   const handleSubmitFinalCode = async () => {
     const userId = Number(localStorage.getItem("userId"));
@@ -234,11 +288,6 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
     try {
       await submitStudentCode({ userId, activityId, code: codeToSubmit });
       setShowSubmitModal(false);
-
-      if (videoRef.current?.srcObject) {
-        (videoRef.current.srcObject as MediaStream).getTracks().forEach((track) => track.stop());
-      }
-
       window.location.href = "/student-dashboard";
     } catch (err) {
       console.error("❌ Failed to submit code:", err);
@@ -262,19 +311,21 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
             </div>
           )}
 
-          <button
-            onClick={handleRunCode}
-            disabled={isRunning}
-            className={`px-4 py-2 rounded flex items-center space-x-2 ${
-              isRunning
-                ? "bg-gray-500 cursor-not-allowed"
-                : "bg-orange-500 hover:bg-orange-600"
-            }`}
-          >
-            {isRunning ? "Running..." : "Run"}
-          </button>
+          
+            <button
+              onClick={handleRunCode}
+              disabled={isRunning}
+              className={`px-4 py-2 rounded flex items-center space-x-2 ${
+                isRunning
+                  ? "bg-gray-500 cursor-not-allowed"
+                  : "bg-orange-500 hover:bg-orange-600"
+              }`}
+            >
+              {isRunning ? "Running..." : "Run"}
+            </button>
+          
 
-          {!readonly && (
+          {!readonly && !viewMode && (
             <button
               onClick={() => setShowSubmitModal(true)}
               className="bg-yellow-400 hover:bg-yellow-500 text-black px-4 py-2 rounded"
@@ -284,28 +335,6 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
           )}
         </div>
       </div>
-
-      {showSubmitModal && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-          <div className="bg-white text-black p-6 rounded-lg shadow-lg">
-            <h3 className="text-lg font-bold mb-4">Are you sure you want to submit?</h3>
-            <div className="flex justify-end gap-2">
-              <button
-                onClick={() => setShowSubmitModal(false)}
-                className="px-4 py-2 bg-gray-300 rounded"
-              >
-                No
-              </button>
-              <button
-                onClick={handleSubmitFinalCode}
-                className="px-4 py-2 bg-green-500 text-white rounded"
-              >
-                Yes
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       <div className="grid grid-cols-[2fr,1fr] h-[calc(100vh-64px-48px)]">
         <div className="h-full border-r border-[#2d2d2d]">
@@ -344,6 +373,28 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
           </div>
         </div>
       </div>
+
+      {showSubmitModal && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+          <div className="bg-white text-black p-6 rounded-lg shadow-lg">
+            <h3 className="text-lg font-bold mb-4">Are you sure you want to submit?</h3>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setShowSubmitModal(false)}
+                className="px-4 py-2 bg-gray-300 rounded"
+              >
+                No
+              </button>
+              <button
+                onClick={handleSubmitFinalCode}
+                className="px-4 py-2 bg-green-500 text-white rounded"
+              >
+                Yes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -11,8 +11,8 @@ using VisemoServices.Data;
 namespace VisemoServices.Migrations
 {
     [DbContext(typeof(DatabaseContext))]
-    [Migration("20250721024822_UpdatedUserAndClassroom")]
-    partial class UpdatedUserAndClassroom
+    [Migration("20250723040254_AddStartTime")]
+    partial class AddStartTime
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -60,6 +60,9 @@ namespace VisemoServices.Migrations
                         .IsRequired()
                         .HasMaxLength(255)
                         .HasColumnType("varchar(255)");
+
+                    b.Property<DateTime?>("StartTime")
+                        .HasColumnType("datetime(6)");
 
                     b.Property<TimeSpan>("Timer")
                         .HasColumnType("time(6)");

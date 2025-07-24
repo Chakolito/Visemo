@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using VisemoAlgorithm.Data;
 using VisemoAlgorithm.Model;
+using VisemoAlgorithm.Dtos;
 
 namespace VisemoAlgorithm.Services
 {
@@ -13,64 +14,111 @@ namespace VisemoAlgorithm.Services
             _context = context;
         }
 
-        public async Task<bool> CheckForPing(int userId, int activityId)
+        public async Task<PingCheckResultDto> CheckForPing(int userId, int activityId)
         {
-            // Get the start time
             var session = await _context.ActivitySessions
                 .FirstOrDefaultAsync(s => s.UserId == userId && s.ActivityId == activityId);
-            if (session == null) return false;
 
-            var elapsed = DateTime.UtcNow - session.StartTime;
-            if (elapsed.TotalMinutes < 10) return false; // not yet past threshold
-
-            var emotions = await _context.UserEmotions
-                .Where(e => e.UserId == userId && e.ActivityId == activityId)
-                .OrderByDescending(e => e.Id)
-                .Take(100) // safe buffer
-                .ToListAsync();
-
-            if (!emotions.Any()) return false;
-
-            // Flatten emotion entries into individual results
-            var emotionList = new List<string>();
-            foreach (var e in emotions.OrderBy(e => e.Id))
+            if (session == null)
             {
-                emotionList.AddRange(Enumerable.Repeat("positive", e.PositiveEmotions));
-                emotionList.AddRange(Enumerable.Repeat("negative", e.NegativeEmotions));
-                emotionList.AddRange(Enumerable.Repeat("neutral", e.NeutralEmotions));
+                return new PingCheckResultDto { Pinged = false, Reason = "No activity session found" };
             }
 
-            int totalEmotions = emotionList.Count;
-            int batchSize = 10;
+            var elapsed = DateTime.UtcNow - session.StartTime;
+            if (elapsed.TotalMinutes < 10)
+            {
+                return new PingCheckResultDto { Pinged = false, Reason = "Activity has not yet passed 10-minute threshold" };
+            }
 
-            if (totalEmotions < 20) return false; // Wait for at least 20 emotions before first check
+            var emotionLogs = await _context.EmotionLogs
+                .Where(e => e.UserId == userId && e.ActivityId == activityId)
+                .OrderByDescending(e => e.Timestamp)
+                .Take(10)
+                .ToListAsync();
 
-            int currentBatchIndex = (totalEmotions - 10) / 10; // determines which batch we're checking
+            if (emotionLogs.Count < 10)
+            {
+                return new PingCheckResultDto { Pinged = false, Reason = $"Only {emotionLogs.Count} recent emotion logs. Minimum required: 10." };
+            }
 
-            // Check if already pinged for this batch
-            var alreadyPinged = await _context.PingLogs.AnyAsync(p =>
-                p.UserId == userId &&
-                p.ActivityId == activityId &&
-                p.PingBatchIndex == currentBatchIndex);
+            int totalLogs = await _context.EmotionLogs
+                .CountAsync(e => e.UserId == userId && e.ActivityId == activityId);
+            int currentBatchIndex = (totalLogs - 10) / 10;
 
-            if (alreadyPinged) return false;
+            var existingPing = await _context.PingLogs
+                .FirstOrDefaultAsync(p =>
+                    p.UserId == userId &&
+                    p.ActivityId == activityId &&
+                    p.PingBatchIndex == currentBatchIndex);
 
-            var recent10 = emotionList.Skip(totalEmotions - 10).Take(10).ToList();
-            int negativeCount = recent10.Count(e => e == "negative");
+            if (existingPing != null)
+            {
+                return new PingCheckResultDto
+                {
+                    Pinged = false,
+                    Reason = $"Ping already triggered for batch {currentBatchIndex}",
+                    Acknowledged = existingPing.Acknowledged,
+                    PingBatchIndex = currentBatchIndex
+                };
+            }
 
-            if (negativeCount >= 5) // 50% threshold
+            var negativeEmotions = new[] { "anger", "disgust", "sad", "fear" };
+            int negativeCount = emotionLogs.Count(e => negativeEmotions.Contains(e.DetectedEmotion.ToLower()));
+
+            if (negativeCount >= 5)
             {
                 _context.PingLogs.Add(new PingLog
                 {
                     UserId = userId,
                     ActivityId = activityId,
-                    PingBatchIndex = currentBatchIndex
+                    PingBatchIndex = currentBatchIndex,
+                    Acknowledged = false  // default value when ping is first created
                 });
+
                 await _context.SaveChangesAsync();
-                return true;
+
+                return new PingCheckResultDto
+                {
+                    Pinged = true,
+                    Reason = "Ping triggered: at least 5 negative emotions in recent 10",
+                    Acknowledged = false,
+                    PingBatchIndex = currentBatchIndex
+                };
             }
 
-            return false;
+            return new PingCheckResultDto   
+            {
+                Pinged = false,
+                Reason = $"Only {negativeCount} negative emotions in recent 10. Minimum required: 5.",
+                Acknowledged = false
+            };
         }
+
+        // Acknowledge a specific ping batch
+        public async Task AcknowledgePing(int userId, int activityId, int pingBatchIndex)
+        {
+            var ping = await _context.PingLogs.FirstOrDefaultAsync(p =>
+                p.UserId == userId &&
+                p.ActivityId == activityId &&
+                p.PingBatchIndex == pingBatchIndex);
+
+            if (ping != null && !ping.Acknowledged)
+            {
+                ping.Acknowledged = true;
+                await _context.SaveChangesAsync();
+            }
+        }
+
+        // Check if a ping batch has been acknowledged
+        public async Task<bool> HasAcknowledgedPing(int userId, int activityId, int pingBatchIndex)
+        {
+            var ping = await _context.PingLogs.FirstOrDefaultAsync(p =>
+                p.UserId == userId &&
+                p.ActivityId == activityId &&
+                p.PingBatchIndex == pingBatchIndex);
+
+            return ping?.Acknowledged ?? false;
+        }
+
     }
 }
