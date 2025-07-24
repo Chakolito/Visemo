@@ -155,6 +155,20 @@ namespace VisemoServices.Controllers
             var result = await _activityService.StartStudentActivitySession(userId, activityId);
             return Ok(new { SessionStarted = result });
         }
+
+        [HttpPost("AcknowledgePing")]
+        public async Task<IActionResult> AcknowledgePing(int userId, int activityId, int pingBatchIndex)
+        {
+            await _activityService.AcknowledgePing(userId, activityId, pingBatchIndex);
+            return Ok(new { message = "Ping acknowledged." });
+        }
+
+        [HttpGet("CheckAcknowledgePing")]
+        public async Task<IActionResult> HasAcknowledgedPing(int userId, int activityId, int pingBatchIndex)
+        {
+            bool acknowledged = await _activityService.HasAcknowledgedPing(userId, activityId, pingBatchIndex);
+            return Ok(new { acknowledged });
+        }
     }
 }
 

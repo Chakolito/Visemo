@@ -301,8 +301,17 @@ namespace VisemoServices.Services
             await _dbContext.SaveChangesAsync();
 
             return true;
-        }   
+        }
 
+        public async Task AcknowledgePing(int userId, int activityId, int pingBatchIndex)
+        {
+            await _pingService.AcknowledgePing(userId, activityId, pingBatchIndex);
+        }
+
+        public async Task<bool> HasAcknowledgedPing(int userId, int activityId, int pingBatchIndex)
+        {
+            return await _pingService.HasAcknowledgedPing(userId, activityId, pingBatchIndex);
+        }
     }
 
 }

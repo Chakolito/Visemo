@@ -24,6 +24,8 @@ namespace VisemoServices.Services
         Task<ActivityStatusDto> GetActivityStatus(int activityId, int userId);
         Task<bool> AutoSubmitIfExpired(int activityId, int userId);
         Task<bool> StartStudentActivitySession(int userId, int activityId);
+        Task AcknowledgePing(int userId, int activityId, int pingBatchIndex);
+        Task<bool> HasAcknowledgedPing(int userId, int activityId, int pingBatchIndex);
     }
 
 }

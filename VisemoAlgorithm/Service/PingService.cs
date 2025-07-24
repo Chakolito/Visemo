@@ -18,6 +18,7 @@ namespace VisemoAlgorithm.Services
         {
             var session = await _context.ActivitySessions
                 .FirstOrDefaultAsync(s => s.UserId == userId && s.ActivityId == activityId);
+
             if (session == null)
             {
                 return new PingCheckResultDto { Pinged = false, Reason = "No activity session found" };
@@ -40,19 +41,25 @@ namespace VisemoAlgorithm.Services
                 return new PingCheckResultDto { Pinged = false, Reason = $"Only {emotionLogs.Count} recent emotion logs. Minimum required: 10." };
             }
 
-            // Compute batch index based on total emotion logs (for deduping pings)
             int totalLogs = await _context.EmotionLogs
                 .CountAsync(e => e.UserId == userId && e.ActivityId == activityId);
             int currentBatchIndex = (totalLogs - 10) / 10;
 
-            var alreadyPinged = await _context.PingLogs.AnyAsync(p =>
-                p.UserId == userId &&
-                p.ActivityId == activityId &&
-                p.PingBatchIndex == currentBatchIndex);
+            var existingPing = await _context.PingLogs
+                .FirstOrDefaultAsync(p =>
+                    p.UserId == userId &&
+                    p.ActivityId == activityId &&
+                    p.PingBatchIndex == currentBatchIndex);
 
-            if (alreadyPinged)
+            if (existingPing != null)
             {
-                return new PingCheckResultDto { Pinged = false, Reason = $"Already pinged for batch {currentBatchIndex}" };
+                return new PingCheckResultDto
+                {
+                    Pinged = true,
+                    Reason = $"Ping already triggered for batch {currentBatchIndex}",
+                    Acknowledged = existingPing.Acknowledged,
+                    PingBatchIndex = currentBatchIndex
+                };
             }
 
             var negativeEmotions = new[] { "anger", "disgust", "sad", "fear" };
@@ -64,7 +71,8 @@ namespace VisemoAlgorithm.Services
                 {
                     UserId = userId,
                     ActivityId = activityId,
-                    PingBatchIndex = currentBatchIndex
+                    PingBatchIndex = currentBatchIndex,
+                    Acknowledged = false  // default value when ping is first created
                 });
 
                 await _context.SaveChangesAsync();
@@ -72,15 +80,44 @@ namespace VisemoAlgorithm.Services
                 return new PingCheckResultDto
                 {
                     Pinged = true,
-                    Reason = "Ping triggered: at least 5 negative emotions in recent 10"
+                    Reason = "Ping triggered: at least 5 negative emotions in recent 10",
+                    Acknowledged = false,
+                    PingBatchIndex = currentBatchIndex
                 };
             }
 
-            return new PingCheckResultDto
+            return new PingCheckResultDto   
             {
                 Pinged = false,
-                Reason = $"Only {negativeCount} negative emotions in recent 10. Minimum required: 5."
+                Reason = $"Only {negativeCount} negative emotions in recent 10. Minimum required: 5.",
+                Acknowledged = false
             };
+        }
+
+        // Acknowledge a specific ping batch
+        public async Task AcknowledgePing(int userId, int activityId, int pingBatchIndex)
+        {
+            var ping = await _context.PingLogs.FirstOrDefaultAsync(p =>
+                p.UserId == userId &&
+                p.ActivityId == activityId &&
+                p.PingBatchIndex == pingBatchIndex);
+
+            if (ping != null && !ping.Acknowledged)
+            {
+                ping.Acknowledged = true;
+                await _context.SaveChangesAsync();
+            }
+        }
+
+        // Check if a ping batch has been acknowledged
+        public async Task<bool> HasAcknowledgedPing(int userId, int activityId, int pingBatchIndex)
+        {
+            var ping = await _context.PingLogs.FirstOrDefaultAsync(p =>
+                p.UserId == userId &&
+                p.ActivityId == activityId &&
+                p.PingBatchIndex == pingBatchIndex);
+
+            return ping?.Acknowledged ?? false;
         }
 
     }
