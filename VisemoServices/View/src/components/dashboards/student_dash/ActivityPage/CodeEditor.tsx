@@ -193,24 +193,32 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
     });
   };
 
-  const handleRunCode = async () => {
-    await takeAndSubmitSnapshot();
+ const handleRunCode = async () => {
+  await takeAndSubmitSnapshot();
 
-    setIsRunning(true);
-    setError(null);
-    setOutput("");
-    let isSuccessful = false;
+  setIsRunning(true);
+  setError(null);
+  setOutput("");
+  let isSuccessful = false;
 
-    try {
-      const code = editorRef.current?.getValue() || "";
+  const code = editorRef.current?.getValue() || "";
+  const apiKeys = [
+    "18926c8cc2msh7decf0045ef743fp1d08e2jsn95f5b7baf376", // first
+    "04bbcf18ecmsh2ef5d6c16bb95bdp180920jsn4bfff42108cb", // fallback
+  ];
 
+  try {
+    let result = null;
+    let succeeded = false;
+
+    for (const apiKey of apiKeys) {
       const response = await fetch(
         "https://judge0-ce.p.rapidapi.com/submissions?base64_encoded=true&wait=true",
         {
           method: "POST",
           headers: {
             "content-type": "application/json",
-            "X-RapidAPI-Key": "04bbcf18ecmsh2ef5d6c16bb95bdp180920jsn4bfff42108cb",
+            "X-RapidAPI-Key": apiKey,
             "X-RapidAPI-Host": "judge0-ce.p.rapidapi.com",
           },
           body: JSON.stringify({
@@ -222,7 +230,26 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
         }
       );
 
-      const result = await response.json();
+      if (response.status === 429) {
+        console.warn(`API key ${apiKey} hit rate limit, trying next key...`);
+        continue; // try next key
+      }
+
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(`HTTP ${response.status}: ${text}`);
+      }
+
+      console.log(`✅ API key [${apiKey}] succeeded!`);
+
+      result = await response.json();
+      succeeded = true;
+      break; // exit loop
+    }
+
+    if (!succeeded) {
+      throw new Error("All API keys failed or rate limited.");
+    }
 
       if (result.stdout) {
         isSuccessful = true;
@@ -238,16 +265,18 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
         setError(result.status?.description || "Unknown error occurred.");
       }
 
-      const userId = Number(localStorage.getItem("userId"));
-      if (!userId || !activityId) return;
+    const userId = Number(localStorage.getItem("userId"));
+    if (!userId || !activityId) return;
 
-      await submitBuild({ userId, activityId, isSuccessful });
-    } catch {
-      setError("An error occurred");
-    } finally {
-      setIsRunning(false);
-    }
-  };
+    await submitBuild({ userId, activityId, isSuccessful });
+
+  } catch (err: any) {
+    console.error(err);
+    setError(err.message || "An error occurred");
+  } finally {
+    setIsRunning(false);
+  }
+};
 
   const handleSubmitFinalCode = async () => {
     const userId = Number(localStorage.getItem("userId"));

@@ -302,3 +302,59 @@ export const fetchSubmissionStatus = async (activityId: number, userId: number) 
   );
   return res.data;
 };
+
+export const pingAlert = async (activityId: number, userId: number) => {
+  const token = localStorage.getItem("token");
+  if (!token) throw new Error("No token");
+
+  const res = await API.get(`/Activity/CheckPing`, {
+    params: { activityId, userId },
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  // Return full DTO
+  return res.data as {
+    acknowledged: any;
+    pingBatchIndex: number; pinged: boolean; reason: string 
+};
+};
+
+export const acknowledgePing = async (
+  activityId: number,
+  userId: number,
+  pingBatchIndex: number
+) => {
+  const token = localStorage.getItem("token");
+  if (!token) throw new Error("No token");
+
+  await API.post(
+    `/Activity/AcknowledgePing`,
+    null,
+    {
+      params: { activityId, userId, pingBatchIndex },
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+};
+
+export const startStudentSession = async (userId: number, activityId: number): Promise<boolean> => {
+  const token = localStorage.getItem("token");
+  if (!token) throw new Error("No token");
+
+  const res = await API.post(
+    `/Activity/StartSession`,
+    null,
+    {
+      params: { userId, activityId },
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+
+  return !!(res.data.sessionStarted || res.data.SessionStarted);
+};

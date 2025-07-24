@@ -1,4 +1,4 @@
-import React, { JSX, useEffect, useState } from "react";
+import React, { JSX, useEffect, useRef, useState } from "react";
 import { Activity } from "../../../../types/classroom";
 import {
   startActivity,
@@ -9,6 +9,8 @@ import {
   fetchSubmissionStatus,
   getGenerateReport,
   getActivityStatus,
+  pingAlert,
+  acknowledgePing
 } from "../../../../api/classroomApi";
 import PreAssessment from "./PreAssessment";
 import CameraAccess from "../../student_dash/ActivityPage/CameraAccess";
@@ -18,6 +20,16 @@ interface ActivityDetailsProps {
   activity: Activity;
   onBack: () => void;
   role: "Teacher" | "Student";
+}
+
+interface Student {
+  id: number;
+  firstName: string;
+  lastName: string;
+  role: string;
+  pinged?: boolean;
+  pingReason?: string;
+  resolved?: boolean;
 }
 
 
@@ -62,12 +74,11 @@ const renderCustomLabel = (props: any) => {
   const { cx, cy, midAngle, outerRadius, name } = props;
 
   const RADIAN = Math.PI / 180;
-  const emojiSize = 40;
-  const baseRadius = outerRadius * 1.4;
+  const emojiSize = 32;
   const radius =
     name === 'Neutral'
-      ? baseRadius * 0.9 // pull Neutral closer
-      : baseRadius;
+      ? outerRadius * 1.2  // bring Neutral closer
+      : outerRadius * 1.2; // slightly extend others
 
   const x = cx + radius * Math.cos(-midAngle * RADIAN);
   const y = cy + radius * Math.sin(-midAngle * RADIAN);
@@ -78,12 +89,9 @@ const renderCustomLabel = (props: any) => {
       y={y - emojiSize / 2}
       width={emojiSize}
       height={emojiSize}
+      overflow="visible"
     >
-      <div
-        style={{ width: emojiSize, height: emojiSize }}
-      >
-        {emotionIcons[name as keyof typeof emotionIcons]}
-      </div>
+      <div style={{ width: emojiSize, height: emojiSize }}>{emotionIcons[name]}</div>
     </foreignObject>
   );
 };
@@ -99,15 +107,16 @@ const ActivityDetails: React.FC<ActivityDetailsProps> = ({
   const [showStopModal, setShowStopModal] = useState(false);
   const [step, setStep] = useState<"details" | "pre" | "camera">("details");
   const [submitted, setSubmitted] = useState<boolean | null>(null);
-  const [students, setStudents] = useState<
-    { id: number; firstName: string; lastName: string; role: string }[]
-  >([]);
-  const [selectedStudent, setSelectedStudent] = useState<{
-    id: number;
-    firstName: string;
-    lastName: string;
-    role: string;
-  } | null>(null);
+  const [resolveModal, setResolveModal] = useState<{ student: Student | null }>({ student: null });
+  const [students, setStudents] = useState<Student[]>([]);
+  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+  const [pingState, setPingState] = useState<Map<number, { pinged: boolean; reason: string; acknowledged: boolean; pingBatchIndex: number }>>(new Map());
+  const pingStateRef = useRef(pingState);
+
+  useEffect(() => {
+  pingStateRef.current = pingState;
+}, [pingState]);
+
   const [emotionData, setEmotionData] = useState([
     { name: "Positive", value: 0 },
     { name: "Neutral", value: 0 },
@@ -214,7 +223,6 @@ const ActivityDetails: React.FC<ActivityDetailsProps> = ({
   };
 }, [activity.id, role, isRunning]);
 
-
   const setEmotionPercentages = (data: {
     Positive: number;
     Neutral: number;
@@ -252,28 +260,37 @@ const ActivityDetails: React.FC<ActivityDetailsProps> = ({
   }
 }, [isRunning, isEnded, role, activity.id]);
 
-  useEffect(() => {
-  if (role !== "Teacher" || !selectedStudent) return;
+useEffect(() => {
+  if (role !== "Teacher") return;
 
-  const fetchStudentEmotions = async () => {
-    const result = await fetchStudentStatus(activity.id, selectedStudent.id);
-    setEmotionPercentages({
-      Positive: result.emotions.positive || 0,
-      Neutral: result.emotions.neutral || 0,
-      Negative: result.emotions.negative || 0,
-    });
+  const fetchEmotions = async () => {
+    if (selectedStudent) {
+      const result = await fetchStudentStatus(activity.id, selectedStudent.id);
+      setEmotionPercentages({
+        Positive: result.emotions.positive || 0,
+        Neutral: result.emotions.neutral || 0,
+        Negative: result.emotions.negative || 0,
+      });
+    } else {
+      const result = await fetchAggregatedEmotions(activity.id);
+      setEmotionPercentages({
+        Positive: result.totalPositiveEmotions || 0,
+        Neutral: result.totalNeutralEmotions || 0,
+        Negative: result.totalNegativeEmotions || 0,
+      });
+    }
   };
 
   if (isRunning) {
-    fetchStudentEmotions(); // initial fetch
-    const interval = setInterval(fetchStudentEmotions, 3000);
+    fetchEmotions();
+    const interval = setInterval(fetchEmotions, 3000);
     return () => clearInterval(interval);
   }
 
   if (!isRunning && isEnded) {
-    fetchStudentEmotions();
+    fetchEmotions();
   }
-}, [isRunning, isEnded, role, activity.id, selectedStudent]);
+}, [role, activity.id, selectedStudent, isRunning, isEnded]);
 
   useEffect(() => {
     if (role !== "Teacher") return;
@@ -287,6 +304,88 @@ const ActivityDetails: React.FC<ActivityDetailsProps> = ({
         setStudents(users.filter((u) => u.role === "Student"));
       });
   }, [role, activity.classroomId]);
+
+ useEffect(() => {
+  if (role !== "Teacher" || activity.isEnded) return;
+
+  const fetchStudentsAndPings = async () => {
+    const fetchedStudents: Student[] = await getClassroomUsers(activity.classroomId);
+
+    const updatedStudents = await Promise.all(
+      fetchedStudents
+        .filter((u) => u.role === "Student")
+        .map(async (u) => {
+          const result = await pingAlert(activity.id, u.id);
+          const isSticky = result.pinged && !result.acknowledged;
+
+          setPingState((prev) => {
+            const newMap = new Map(prev);
+            if (isSticky) {
+              newMap.set(u.id, {
+                pinged: true,
+                reason: result.reason || "",
+                acknowledged: false,
+                pingBatchIndex: result.pingBatchIndex,
+              });
+            } else {
+              newMap.delete(u.id);
+            }
+            return newMap;
+          });
+
+          return {
+            ...u,
+            pinged: isSticky,
+            pingReason: isSticky ? result.reason : "",
+            resolved: result.acknowledged,
+          };
+        })
+    );
+
+    setStudents(updatedStudents);
+  };
+
+  fetchStudentsAndPings();
+  const interval = setInterval(fetchStudentsAndPings, 10000);
+  return () => clearInterval(interval);
+}, [role, activity.classroomId, activity.id, activity.isEnded]);
+
+
+const handleResolveConfirm = async () => {
+  if (!resolveModal.student) return;
+
+  const studentId = resolveModal.student.id;
+  const pingInfo = pingState.get(studentId);
+  const batchIndex = pingInfo?.pingBatchIndex;
+
+  if (batchIndex !== undefined) {
+    try {
+      const userId = Number(localStorage.getItem("userId"));
+      await acknowledgePing(batchIndex, userId, activity.id); // 🔁 Send back to backend
+    } catch (err) {
+      console.error("Failed to acknowledge ping:", err);
+    }
+  }
+
+  setPingState((prev) => {
+  const newMap = new Map(prev);
+  newMap.set(studentId, {
+    pinged: false,
+    reason: "",
+    acknowledged: true,
+    pingBatchIndex: -1
+  });
+  return newMap;
+});
+
+  setStudents((prev) =>
+    prev.map((s) =>
+      s.id === studentId ? { ...s, pinged: false, resolved: true, pingReason: "" } : s
+    )
+  );
+
+  setResolveModal({ student: null });
+};
 
   const handleStudentClick = (student: typeof students[0]) => {
     if (selectedStudent?.id === student.id) {
@@ -431,13 +530,34 @@ const ActivityDetails: React.FC<ActivityDetailsProps> = ({
                         : "hover:bg-gray-300"
                     }`}
                   >
-                    {student.firstName} {student.lastName}
-                  </div>
-                ))}
-              </div>
-            </div>
+                              <div className="flex justify-between items-center">
+            <span>
+              {student.firstName} {student.lastName}
+            </span>
+
+            {pingState.get(student.id)?.pinged && !student.resolved && (
+              <span className="ml-2">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-4 w-4 text-red-600 inline-block"
+                  viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M8.257 3.099c.765-1.36 2.72-1.36 3.485 0l6.518 11.606c.75 1.338-.213 2.995-1.742 2.995H3.48c-1.53 0-2.492-1.657-1.742-2.995L8.257 3.1zM11 14a1 1 0 10-2 0 1 1 0 002 0zm-.25-6.75a.75.75 0 00-1.5 0v3.5a.75.75 0 001.5 0v-3.5z"
+                  clipRule="evenodd"
+                />
+              </svg>
+            </span>
           )}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
+      )}
+    </div>
 
         {role === "Teacher" && (
           <div className="flex-1 p-4">
@@ -499,11 +619,49 @@ const ActivityDetails: React.FC<ActivityDetailsProps> = ({
           </button>
         </div>
             )}
+
+            {pingState.get(selectedStudent?.id || -1)?.pinged && !selectedStudent?.resolved &&  (
+              <div className="ml-4 mt-2">
+                <button
+                  onClick={() => setResolveModal({ student: selectedStudent })}
+                  className="px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded"
+                >
+                  Resolve Alert
+                </button>
+              </div>
+            )}
+
+            {resolveModal.student && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+              <div className="bg-white text-black p-6 rounded-lg shadow-lg w-[350px] relative">
+                <h2 className="text-lg font-bold mb-4">
+                  Resolve Alert for {resolveModal.student.firstName} {resolveModal.student.lastName}?
+                </h2>
+
+                <p>Have you resolved this student's alert?</p>
+
+                <div className="flex justify-end gap-2 mt-4">
+                  <button
+                    onClick={() => setResolveModal({ student: null })}
+                    className="px-4 py-2 bg-gray-300 rounded"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleResolveConfirm}
+                    className="px-4 py-2 bg-green-500 text-white rounded"
+                  >
+                    Resolve
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
           </div>
           </div>
         )}
         </div>
-
+        
       {modalData && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white text-black p-8 rounded-lg shadow-lg w-[400px] relative">
@@ -511,7 +669,9 @@ const ActivityDetails: React.FC<ActivityDetailsProps> = ({
               onClick={() => setModalData(null)}
               className="absolute top-2 right-2 text-xl border rounded-full w-8 h-8 flex items-center justify-center"
             >
-              ✖
+               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M10 8.586l4.95-4.95a1 1 0 111.414 1.414L11.414 10l4.95 4.95a1 1 0 01-1.414 1.414L10 11.414l-4.95 4.95a1 1 0 01-1.414-1.414L8.586 10l-4.95-4.95A1 1 0 115.05 3.636L10 8.586z" clipRule="evenodd" />
+              </svg>
             </button>
 
             <div className="text-xl font-bold mb-4">

@@ -55,7 +55,7 @@ namespace VisemoAlgorithm.Services
             {
                 return new PingCheckResultDto
                 {
-                    Pinged = true,
+                    Pinged = false,
                     Reason = $"Ping already triggered for batch {currentBatchIndex}",
                     Acknowledged = existingPing.Acknowledged,
                     PingBatchIndex = currentBatchIndex

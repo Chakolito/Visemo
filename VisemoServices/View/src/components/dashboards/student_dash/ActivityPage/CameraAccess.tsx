@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import VideocamIcon from '@mui/icons-material/Videocam';
 import { useNavigate } from 'react-router-dom';
 import { useCamera } from '../CameraContext';
+import { startStudentSession } from '../../../../api/classroomApi';
 
 interface CameraAccessProps {
   activityId: number;
@@ -42,18 +43,32 @@ const CameraAccess: React.FC<CameraAccessProps> = ({ activityId }) => {
     startCamera();
   }, [startCamera]);
 
-  const handleStart = () => {
-    if (!streamRef.current) {
-      console.error("No stream available");
-      return;
-    }
+  const handleStart = async () => {
+  if (!streamRef.current) {
+    console.error("No stream available");
+    return;
+  }
 
-    navigate("/editor", {
-      state: {
-        activityId,
-      }
-    });
-  };
+  const userId = Number(localStorage.getItem("userId"));
+  if (!userId) {
+    console.error("No userId found in localStorage");
+    return;
+  }
+
+  const sessionStarted = await startStudentSession(userId, activityId);
+
+  if (sessionStarted) {
+    console.log("Session started!", sessionStarted);
+  } else {
+    console.warn("Session already exists or failed.");
+  }
+
+  navigate("/editor", {
+    state: {
+      activityId,
+    },
+  });
+};
 
   return (
     <div className="rounded-lg p-8 max-w-2xl mx-auto">
