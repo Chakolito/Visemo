@@ -29,32 +29,21 @@ namespace VisemoAlgorithm.Services
                 return new PingCheckResultDto { Pinged = false, Reason = "Activity has not yet passed 10-minute threshold" };
             }
 
-            var emotions = await _context.UserEmotions
+            var emotionLogs = await _context.EmotionLogs
                 .Where(e => e.UserId == userId && e.ActivityId == activityId)
-                .OrderByDescending(e => e.Id)
-                .Take(100)
+                .OrderByDescending(e => e.Timestamp)
+                .Take(10)
                 .ToListAsync();
 
-            if (!emotions.Any())
+            if (emotionLogs.Count < 10)
             {
-                return new PingCheckResultDto { Pinged = false, Reason = "No emotion data found" };
+                return new PingCheckResultDto { Pinged = false, Reason = $"Only {emotionLogs.Count} recent emotion logs. Minimum required: 10." };
             }
 
-            var emotionList = new List<string>();
-            foreach (var e in emotions.OrderBy(e => e.Id))
-            {
-                emotionList.AddRange(Enumerable.Repeat("positive", e.PositiveEmotions));
-                emotionList.AddRange(Enumerable.Repeat("negative", e.NegativeEmotions));
-                emotionList.AddRange(Enumerable.Repeat("neutral", e.NeutralEmotions));
-            }
-
-            int totalEmotions = emotionList.Count;
-            if (totalEmotions < 20)
-            {
-                return new PingCheckResultDto { Pinged = false, Reason = $"Only {totalEmotions} total emotions. Minimum required: 20." };
-            }
-
-            int currentBatchIndex = (totalEmotions - 10) / 10;
+            // Compute batch index based on total emotion logs (for deduping pings)
+            int totalLogs = await _context.EmotionLogs
+                .CountAsync(e => e.UserId == userId && e.ActivityId == activityId);
+            int currentBatchIndex = (totalLogs - 10) / 10;
 
             var alreadyPinged = await _context.PingLogs.AnyAsync(p =>
                 p.UserId == userId &&
@@ -66,8 +55,8 @@ namespace VisemoAlgorithm.Services
                 return new PingCheckResultDto { Pinged = false, Reason = $"Already pinged for batch {currentBatchIndex}" };
             }
 
-            var recent10 = emotionList.Skip(totalEmotions - 10).Take(10).ToList();
-            int negativeCount = recent10.Count(e => e == "negative");
+            var negativeEmotions = new[] { "anger", "disgust", "sad", "fear" };
+            int negativeCount = emotionLogs.Count(e => negativeEmotions.Contains(e.DetectedEmotion.ToLower()));
 
             if (negativeCount >= 5)
             {
@@ -77,9 +66,14 @@ namespace VisemoAlgorithm.Services
                     ActivityId = activityId,
                     PingBatchIndex = currentBatchIndex
                 });
+
                 await _context.SaveChangesAsync();
 
-                return new PingCheckResultDto { Pinged = true, Reason = "Ping triggered: at least 5 negative emotions in recent 10" };
+                return new PingCheckResultDto
+                {
+                    Pinged = true,
+                    Reason = "Ping triggered: at least 5 negative emotions in recent 10"
+                };
             }
 
             return new PingCheckResultDto

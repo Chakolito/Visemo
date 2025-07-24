@@ -22,7 +22,7 @@ namespace VisemoAlgorithm.Service
             fileContent.Headers.ContentType = new MediaTypeHeaderValue("image/png"); // or jpeg
             content.Add(fileContent, "file", imageFile.FileName);
 
-            var response = await _httpClient.PostAsync("http://visemo-ai-1:8000/predict", content);
+            var response = await _httpClient.PostAsync("http://localhost:8000/predict", content);
             response.EnsureSuccessStatusCode();
 
             var json = await response.Content.ReadAsStringAsync();
