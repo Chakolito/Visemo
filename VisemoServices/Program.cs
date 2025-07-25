@@ -133,6 +133,9 @@ builder.Services.AddScoped<IAuthTokenService, AuthTokenService>();
 builder.Services.AddScoped<IClassroomService, ClassroomService>();
 builder.Services.AddScoped<IActivityService, ActivityService>();
 
+//port listen
+builder.WebHost.UseUrls("http://*:80");
+
 //  Build the app
 var app = builder.Build();
 

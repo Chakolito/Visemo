@@ -4,6 +4,7 @@ from ultralytics import YOLO
 import cv2
 import numpy as np
 import tempfile
+import uvicorn
 
 app = FastAPI()
 
@@ -40,6 +41,10 @@ async def predict(file: UploadFile = File(...)):
     })
     else:
         return JSONResponse(content={ "emotion": "unknown", "confidence": 0 })
+
+    if __name__ == "__main__":
+        uvicorn.run("main:app", host="0.0.0.0", port=8000)
+
 # To run this
 # pip install fastapi uvicorn torch torchvision ultralytics
 # python -m uvicorn main:app --host 0.0.0.0 --port 8000
