@@ -22,7 +22,7 @@ RUN apt-get update && apt-get install -y python3 python3-pip
 # Copy FastAPI files
 COPY --from=build /src/VisemoServices/AI_Files/FastAPI_Endpoint ./AI_Files/FastAPI_Endpoint
 WORKDIR /app/AI_Files/FastAPI_Endpoint
-RUN pip3 install fastapi uvicorn python-multipart opencv-python-headless torch torchvision
+RUN pip3 install --break-system-packages fastapi uvicorn python-multipart opencv-python-headless torch torchvision
 
 # Return to /app and copy .NET publish output
 WORKDIR /app
