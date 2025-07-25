@@ -7,7 +7,7 @@ interface StudentTabProps {
     role: "Teacher" | "Student"
 }
 
-const BASE_URL = process.env.REACT_APP_API_URL || "https://localhost:7131/api/Classroom";
+const BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:5000/api/Classroom";
 
 const StudentTab: React.FC<StudentTabProps> = ({classroomId, role}) =>  {
   const [showModal, setShowModal] = useState(false);
