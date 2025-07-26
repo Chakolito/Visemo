@@ -23,6 +23,6 @@ echo "Using PORT = $PORT"
 export ASPNETCORE_URLS="http://+:$PORT"
 
 echo "Starting ASP.NET Core backend..."
-dotnet /app/VisemoServices.dll --environment=Development
+dotnet /app/VisemoServices.dll
 
 echo "ASP.NET Core process exited unexpectedly."
