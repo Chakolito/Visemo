@@ -33,7 +33,7 @@ COPY startup.sh ./startup.sh
 RUN chmod +x ./startup.sh
 
 # Expose ports
-EXPOSE 5000 8000
+EXPOSE 80 8000
 
 # Start both backend and FastAPI
 ENTRYPOINT ["./startup.sh"]
