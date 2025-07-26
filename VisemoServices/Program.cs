@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using VisemoServices.Services;
 using VisemoServices.Data;
 using Microsoft.OpenApi.Models;
@@ -12,7 +12,7 @@ using VisemoAlgorithm.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
-//ReferenceHandler.IgnoreCycles 30 mins wasted because i did not read -chakayl
+// ReferenceHandler.IgnoreCycles
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
@@ -20,11 +20,11 @@ builder.Services.AddControllers()
         options.JsonSerializerOptions.WriteIndented = true;
     });
 
-//  JWT Configuration
+// JWT Configuration
 var jwtSettings = builder.Configuration.GetSection("Jwt");
 var key = Encoding.UTF8.GetBytes(jwtSettings["Key"]);
 
-//  Add JWT Authentication
+// JWT Authentication
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -44,10 +44,10 @@ builder.Services.AddAuthentication(options =>
     };
 });
 
-//  Authorization
+// Authorization
 builder.Services.AddAuthorization();
 
-//  CORS
+// CORS
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
@@ -58,11 +58,10 @@ builder.Services.AddCors(options =>
     });
 });
 
-//  Add services
+// Services & Swagger
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 
-//  Swagger with JWT support
 builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new OpenApiInfo
@@ -74,7 +73,6 @@ builder.Services.AddSwaggerGen(c =>
     c.OperationFilter<SwaggerFileOperationFilter>();
     c.MapType<IFormFile>(() => new OpenApiSchema { Type = "string", Format = "binary" });
 
-    //  Add JWT Auth to Swagger
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
         Name = "Authorization",
@@ -101,25 +99,23 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
-// Database setup - VisemoDb (main database)
+// Database - VisemoDb (main)
 var mainDbConnection = builder.Configuration.GetConnectionString("DefaultConnection");
 var mainDbVersion = ServerVersion.AutoDetect(mainDbConnection);
-
 builder.Services.AddDbContext<DatabaseContext>(options =>
 {
     options.UseMySql(mainDbConnection, mainDbVersion);
 });
 
-// Database setup - VisemoAlgoDb (for algorithm/emotion tracking)
+// Database - VisemoAlgoDb (emotions)
 var algoDbConnection = builder.Configuration.GetConnectionString("AlgoDbConnection");
 var algoDbVersion = ServerVersion.AutoDetect(algoDbConnection);
-
 builder.Services.AddDbContext<VisemoAlgoDbContext>(options =>
 {
     options.UseMySql(algoDbConnection, algoDbVersion);
 });
 
-//  Dependency Injection
+// Dependency Injection
 builder.Services.AddScoped<IUserServices, UserServices>();
 builder.Services.AddHttpClient<EmotionDetection>();
 builder.Services.AddScoped<IEmotionServices, EmotionServices>();
@@ -133,20 +129,21 @@ builder.Services.AddScoped<IAuthTokenService, AuthTokenService>();
 builder.Services.AddScoped<IClassroomService, ClassroomService>();
 builder.Services.AddScoped<IActivityService, ActivityService>();
 
-//port listen
-builder.WebHost.UseUrls("http://*:80");
+// ✅ Dynamic Port Binding for Azure
+var port = Environment.GetEnvironmentVariable("PORT") ?? "80";
+builder.WebHost.UseUrls($"http://*:{port}");
 
-//  Build the app
+// Build app
 var app = builder.Build();
 
-//  Middleware pipeline
+// Middleware
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
 }
 
-//  Apply migrations for both databases
+// Apply Migrations
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
@@ -165,4 +162,3 @@ app.UseStaticFiles();
 
 app.MapControllers();
 app.Run();
-    
