@@ -17,8 +17,8 @@ if [ ! -f /app/VisemoServices.dll ]; then
   exit 1
 fi
 
-# Get port from environment or default to 80
-PORT=${PORT:-80}
+# Use Azure-injected port (defaults to 8080 if not set)
+PORT=${PORT:-8080}
 echo "Using PORT = $PORT"
 export ASPNETCORE_URLS="http://+:$PORT"
 
