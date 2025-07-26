@@ -204,6 +204,8 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   const code = editorRef.current?.getValue() || "";
   const apiKeys = [
     "18926c8cc2msh7decf0045ef743fp1d08e2jsn95f5b7baf376", // first
+    "6c225602e2mshe9187704f031b97p15a07ajsn8563c11970b7", // second
+    "4b83f5c711mshda2b31f350832c8p1029a5jsn45667a1b2f9f", // third
     "04bbcf18ecmsh2ef5d6c16bb95bdp180920jsn4bfff42108cb", // fallback
   ];
 

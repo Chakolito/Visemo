@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const BASE_URL = `${process.env.REACT_APP_API_URL}/api/User`;
-axios.defaults.timeout = 10000;
+axios.defaults.timeout = 30000;
 
 const saveUserInfo = (user: any, token: string) => {
   const userPayload = {
