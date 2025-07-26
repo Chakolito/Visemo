@@ -52,7 +52,10 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
     {
-        policy.WithOrigins("http://localhost:3000")
+        policy.WithOrigins(
+            "https://lively-bay-0d5523f00.1.azurestaticapps.net", // live frontend
+            "http://localhost:3000"                                // local dev
+        )
               .AllowAnyMethod()
               .AllowAnyHeader();
     });
