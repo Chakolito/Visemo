@@ -1,18 +1,14 @@
 #!/bin/bash
-
-# Fail on any error
 set -e
-
-# Print commands
 set -x
 
-# Start FastAPI in background
 echo "Starting FastAPI..."
 python3 ./AI_Files/FastAPI_Endpoint/main.py &
 
-# Wait briefly to ensure FastAPI starts
 sleep 3
 
-# Start ASP.NET Core app
+echo "Verifying .NET publish files..."
+ls -la /app
+
 echo "Starting ASP.NET Core..."
 dotnet /app/VisemoServices.dll --urls=http://0.0.0.0:80
