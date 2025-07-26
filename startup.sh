@@ -16,4 +16,4 @@ sleep 3
 # Start ASP.NET Core app (must bind to expected port)
 echo "Starting ASP.NET Core..."
 dotnet VisemoServices.dll --urls=http://0.0.0.0:80
-
+#test
