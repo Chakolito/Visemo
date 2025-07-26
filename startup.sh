@@ -17,10 +17,7 @@ if [ ! -f /app/VisemoServices.dll ]; then
   exit 1
 fi
 
-echo "Setting ASP.NET Core to bind to port 80..."
-export ASPNETCORE_URLS=http://+:80
-
-echo "Starting ASP.NET Core backend..."
-dotnet /app/VisemoServices.dll --environment=Development
+echo "Starting ASP.NET Core backend explicitly on port 80..."
+dotnet /app/VisemoServices.dll --urls=http://0.0.0.0:80 --environment=Development
 
 echo "ASP.NET Core process exited unexpectedly."
